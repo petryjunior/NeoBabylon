@@ -1,6 +1,37 @@
 (() => {
   const CONTEXT_RADIUS = 420;
   const HOST_ID = "neobabylon-host";
+  const STALE_CONTEXT_MSG =
+    "NeoBabylon was updated or reloaded. Refresh this page (F5) to keep translating.";
+
+  /**
+   * After chrome://extensions → Reload, old content scripts stay injected but
+   * chrome.storage / sendMessage throw or set lastError.
+   * @param {unknown} errOrMessage
+   */
+  function isStaleExtensionContext(errOrMessage) {
+    const msg =
+      typeof errOrMessage === "string"
+        ? errOrMessage
+        : errOrMessage instanceof Error
+          ? errOrMessage.message
+          : String(errOrMessage ?? "");
+    return (
+      /Extension context invalidated/i.test(msg) ||
+      /Receiving end does not exist/i.test(msg) ||
+      /message port closed before a response was received/i.test(msg)
+    );
+  }
+
+  /**
+   * @param {string | undefined} lastErrorMessage
+   */
+  function userFacingExtensionError(lastErrorMessage) {
+    if (isStaleExtensionContext(lastErrorMessage || "")) {
+      return STALE_CONTEXT_MSG;
+    }
+    return lastErrorMessage || "Extension error.";
+  }
 
   /** @type {ShadowRoot | null} */
   let shadow = null;
@@ -301,63 +332,83 @@
   document.addEventListener(
     "click",
     async (e) => {
-      const stored = await chrome.storage.local.get([
-        "requireAlt",
-        "targetLang",
-        "includeDefinition",
-      ]);
-      const requireAlt = stored.requireAlt !== false;
-      if (requireAlt && !e.altKey) return;
+      try {
+        let stored;
+        try {
+          stored = await chrome.storage.local.get([
+            "requireAlt",
+            "targetLang",
+            "includeDefinition",
+          ]);
+        } catch (err) {
+          if (isStaleExtensionContext(err)) {
+            showError(e.clientX, e.clientY, STALE_CONTEXT_MSG);
+            armDismiss();
+            return;
+          }
+          throw err;
+        }
 
-      const t = /** @type {HTMLElement} */ (e.target);
-      if (t.closest(`#${HOST_ID}`)) return;
-      if (t.closest("input, textarea, select, [contenteditable=true]")) {
-        return;
-      }
+        const requireAlt = stored.requireAlt !== false;
+        if (requireAlt && !e.altKey) return;
 
-      const x = e.clientX;
-      const y = e.clientY;
-      const base = rangeFromPoint(x, y);
-      if (!base) return;
+        const t = /** @type {HTMLElement} */ (e.target);
+        if (t.closest(`#${HOST_ID}`)) return;
+        if (t.closest("input, textarea, select, [contenteditable=true]")) {
+          return;
+        }
 
-      const extracted = wordAndContext(base);
-      if (!extracted) return;
+        const x = e.clientX;
+        const y = e.clientY;
+        const base = rangeFromPoint(x, y);
+        if (!base) return;
 
-      e.preventDefault();
-      e.stopPropagation();
+        const extracted = wordAndContext(base);
+        if (!extracted) return;
 
-      showLoading(x, y, extracted.word);
+        e.preventDefault();
+        e.stopPropagation();
 
-      chrome.runtime.sendMessage(
-        {
-          type: "NEO_BABYLON_TRANSLATE",
-          payload: {
-            word: extracted.word,
-            context: extracted.context,
-            targetLang: stored.targetLang || "English",
-            includeDefinition: Boolean(stored.includeDefinition),
+        showLoading(x, y, extracted.word);
+
+        chrome.runtime.sendMessage(
+          {
+            type: "NEO_BABYLON_TRANSLATE",
+            payload: {
+              word: extracted.word,
+              context: extracted.context,
+              targetLang: stored.targetLang || "English",
+              includeDefinition: Boolean(stored.includeDefinition),
+            },
           },
-        },
-        (response) => {
-          if (chrome.runtime.lastError) {
-            showError(
-              x,
-              y,
-              chrome.runtime.lastError.message || "Extension error.",
-            );
+          (response) => {
+            if (chrome.runtime.lastError) {
+              showError(
+                x,
+                y,
+                userFacingExtensionError(chrome.runtime.lastError.message),
+              );
+              armDismiss();
+              return;
+            }
+            if (!response?.ok) {
+              showError(x, y, response?.error || "Unknown error.");
+              armDismiss();
+              return;
+            }
+            showResult(x, y, extracted.word, response.result);
+            requestAnimationFrame(() => placePanel(x, y));
             armDismiss();
-            return;
-          }
-          if (!response?.ok) {
-            showError(x, y, response?.error || "Unknown error.");
-            armDismiss();
-            return;
-          }
-          showResult(x, y, extracted.word, response.result);
-          requestAnimationFrame(() => placePanel(x, y));
+          },
+        );
+      } catch (err) {
+        if (isStaleExtensionContext(err)) {
+          showError(e.clientX, e.clientY, STALE_CONTEXT_MSG);
           armDismiss();
-        },
-      );
+          return;
+        }
+        console.error("[NeoBabylon]", err);
+      }
     },
     true,
   );

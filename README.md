@@ -9,6 +9,8 @@ Chrome extension (Manifest V3): **Alt+click** a word on a webpage to see a **con
 3. Click **Load unpacked** and select this folder (`NeoBabylon`).
 4. Open the extension’s **Options** (right-click the toolbar icon or use “Extension options”) and save your **OpenAI API key** (stored only in `chrome.storage.local` in this profile) or a **proxy URL** that forwards to OpenAI.
 
+After you click **Reload** on the extension (or load a new build), **refresh any open tabs** where you use NeoBabylon. Otherwise Chrome can keep an old content script and you may see “Extension context invalidated” until the page is reloaded.
+
 ## Permissions
 
 - **storage** — save settings and key locally.
