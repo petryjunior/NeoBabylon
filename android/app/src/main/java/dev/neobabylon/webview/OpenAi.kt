@@ -42,16 +42,28 @@ object OpenAi {
                     """Always set "definition" to null.""",
                 ).joinToString(" ")
             } else {
+                val multiword =
+                    "Detect whether the surface word belongs to a phrasal verb, separable verb, " +
+                        "verb+particle idiom, or similar multi-word verbal expression in the context " +
+                        "(particle may be adjacent or separated across words)."
                 listOf(
                     "You help users understand words on web pages.",
                     "Given a surface word and a short surrounding context, respond with JSON only.",
                     """Schema: {"translation": string, "definition": string | null}.""",
-                    "translation: natural translation of that word or phrase in the given target language, matching how it is used in context.",
-                    "definition: brief gloss in the TARGET language if useful; otherwise null.",
+                    multiword,
+                    "translation: natural target-language equivalent for how the surface word reads in this sentence; " +
+                        "if it participates in such a multi-word verbal unit, reflect that unit's contextual sense " +
+                        "(a short multi-word gloss is fine when clearer than a single word).",
+                    "definition: always in the TARGET language.",
                     if (includeDefinition) {
-                        "Include definition when it adds clarity; keep it under 40 words."
+                        "When a multi-word verbal unit applies, the definition should name the full expression " +
+                            "(as it appears in the context) and briefly explain its meaning here—not only the " +
+                            "isolated surface word. Otherwise give a brief gloss when it adds clarity, or null. " +
+                            "Cap at about 60 words."
                     } else {
-                        """Always set "definition" to null."""
+                        """Usually set "definition" to null. Exception: if a multi-word verbal unit applies as above, """ +
+                            "set definition to that concise phrasal explanation (name the full expression). " +
+                            "If no such unit applies, null."
                     },
                 ).joinToString(" ")
             }
