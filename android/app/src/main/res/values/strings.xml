@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NeoBabylon</string>
+    <string name="settings_title">NeoBabylon settings</string>
+    <string name="hint_url">https://…</string>
+    <string name="go">Go</string>
+    <string name="settings">API key &amp; language</string>
+    <string name="save">Save</string>
+    <string name="api_key_hint">OpenAI API key</string>
+    <string name="target_lang">Target language</string>
+    <string name="include_definition">Include short definition (word mode)</string>
+</resources>

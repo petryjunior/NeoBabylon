@@ -1,0 +1,28 @@
+# NeoBabylon for Android (solo WebView)
+
+This is **not** a Chrome extension. It is a tiny **WebView browser** you install yourself. You browse inside this app; on **long-press** (press and hold a word until the context menu would appear), NeoBabylon **captures the `contextmenu` event**, resolves the word + local context, calls **OpenAI from Kotlin** (your key stays in Android `SharedPreferences`, not in page JavaScript), and shows the same style of overlay as the desktop extension.
+
+## Tradeoffs (read once)
+
+- **You use this app instead of Chrome** for pages where you want tap-and-hold translate. Normal Chrome is unchanged.
+- **Strict Content-Security-Policy sites** may block `eval` used to inject the script; most news / wiki sites work. If a page fails, there is no fallback inside stock Chrome.
+- **`JavascriptInterface`** is exposed to every page loaded in the WebView. Your **API key is not passed to JS**, but a malicious page could spam `translateAsync` and spend your quota. Solo browsing only.
+
+## Build
+
+1. Install [Android Studio](https://developer.android.com/studio) on Windows or Linux.
+2. **Open** the `android` folder (not the repo root) as a project.
+3. Let Gradle sync; use **JDK 17**.
+4. Run **Run > Run 'app'** on a device or emulator (Android 8+).
+
+First launch: **toolbar menu → API key & language**, paste your OpenAI key and target language, **Save**. Then load a site from the URL bar and **long-press a word**.
+
+## How it maps to desktop
+
+| Desktop (Chrome extension) | Android (this app)        |
+|-----------------------------|---------------------------|
+| Alt+click                   | Long-press word (`contextmenu`) |
+| `chrome.storage`            | `SharedPreferences`       |
+| Background service worker   | Kotlin `HttpURLConnection` |
+
+The Chrome extension remains the primary experience on desktop; this folder is an optional **personal mobile** companion.

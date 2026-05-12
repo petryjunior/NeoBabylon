@@ -2,6 +2,8 @@
 
 Chrome extension (Manifest V3): **Alt+click** a word for a contextual translation, or **right-click selected text** and choose **Translate selection with NeoBabylon** (OpenAI). Optional short definition for word mode in settings.
 
+For **Android (solo)**, see the WebView app in [`android/README.md`](android/README.md): long-press a word inside that app to translate similarly to desktop.
+
 ## Install (developer mode)
 
 1. Open `chrome://extensions`.
