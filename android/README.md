@@ -19,7 +19,7 @@ If the app **closes immediately on open**, plug in USB with debugging on, then i
 `"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" logcat -d | findstr AndroidRuntime`  
 and look for the **FATAL EXCEPTION** stack trace (often a layout/theme issue on first launch).
 
-First launch: tap **API key & language** at the top, paste your OpenAI key and target language, **Save**. Then use the address bar and **Go**, or edit the URL after a page loads. **Long-press a word** to translate.
+First launch: tap **API key & language**, save your key. Use the **address bar**: tap it to see **recent URLs** (and type to filter). **Go** loads the page. **Long-press a word** (or hold ~½ second) to translate; errors show in the red panel if the API fails.
 
 ## How it maps to desktop
 

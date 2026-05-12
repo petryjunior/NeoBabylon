@@ -16,7 +16,8 @@ class NeoBridge(
 
     @JavascriptInterface
     fun translateAsync(payloadJson: String, callbackId: String) {
-        val safe = callbackId.filter { it.isLetterOrDigit() }
+        // JS uses ids like "_neo_123_456" — must keep underscores or the callback name won't match window[cbId].
+        val safe = callbackId.filter { it.isLetterOrDigit() || it == '_' }
         if (safe.isEmpty()) {
             return
         }

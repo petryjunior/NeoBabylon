@@ -197,7 +197,7 @@
     panelEl.style.position = "fixed";
     panelEl.style.left = "0";
     panelEl.style.top = "0";
-    panelEl.innerHTML = `<div class="nb-word"></div><div class="nb-trans">Translating…</div>`;
+    panelEl.innerHTML = `<div class="nb-word"></div><div class="nb-trans">Translating...</div>`;
     const wEl = panelEl.querySelector(".nb-word");
     if (wEl) wEl.textContent = label;
     root?.appendChild(panelEl);
@@ -257,63 +257,138 @@
     }
   });
 
-  document.addEventListener(
-    "contextmenu",
-    (e) => {
-      const t = e.target;
-      if (t && t.closest && t.closest(`#${HOST_ID}`)) return;
-      if (
-        t &&
-        t.closest &&
-        t.closest("input, textarea, select, [contenteditable=true]")
-      ) {
-        return;
-      }
+  let longPressTimer = null;
+  const touchStart = { x: 0, y: 0 };
+  let lastTranslateAt = 0;
 
-      const x = e.clientX;
-      const y = e.clientY;
-      const base = rangeFromPoint(x, y);
-      if (!base) return;
+  function ignoreInteractive(el) {
+    return (
+      el &&
+      el.closest &&
+      (el.closest(`#${HOST_ID}`) ||
+        el.closest("input, textarea, select, [contenteditable=true]"))
+    );
+  }
 
-      const extracted = wordAndContext(base);
-      if (!extracted) return;
+  function beginTranslate(x, y, extracted, ev) {
+    if (ev && typeof ev.preventDefault === "function") {
+      ev.preventDefault();
+      ev.stopPropagation();
+    }
+    showLoading(x, y, extracted.word);
 
-      e.preventDefault();
-      e.stopPropagation();
-
-      showLoading(x, y, extracted.word);
-
-      const cbId = "_neo_" + Date.now() + "_" + Math.floor(Math.random() * 1e9);
-      window[cbId] = function (resp) {
-        delete window[cbId];
-        try {
-          if (!resp || !resp.ok) {
-            showError(x, y, (resp && resp.error) || "Unknown error.");
-            armDismiss();
-            return;
-          }
-          showResult(x, y, extracted.word, resp.result);
-          requestAnimationFrame(() => placePanel(x, y));
-          armDismiss();
-        } catch (err) {
-          showError(x, y, err && err.message ? err.message : String(err));
-          armDismiss();
-        }
-      };
-
+    const cbId = "_neo_" + Date.now() + "_" + Math.floor(Math.random() * 1e9);
+    window[cbId] = function (resp) {
+      delete window[cbId];
       try {
-        NeoAndroid.translateAsync(
-          JSON.stringify({
-            word: extracted.word,
-            context: extracted.context,
-          }),
-          cbId,
-        );
+        if (!resp || !resp.ok) {
+          showError(x, y, (resp && resp.error) || "Unknown error.");
+          armDismiss();
+          return;
+        }
+        showResult(x, y, extracted.word, resp.result);
+        requestAnimationFrame(() => placePanel(x, y));
+        armDismiss();
       } catch (err) {
         showError(x, y, err && err.message ? err.message : String(err));
         armDismiss();
       }
+    };
+
+    try {
+      NeoAndroid.translateAsync(
+        JSON.stringify({
+          word: extracted.word,
+          context: extracted.context,
+        }),
+        cbId,
+      );
+    } catch (err) {
+      showError(x, y, err && err.message ? err.message : String(err));
+      armDismiss();
+    }
+  }
+
+  function tryBeginFromPoint(x, y, ev) {
+    if (Date.now() - lastTranslateAt < 600) {
+      return false;
+    }
+    const probe = document.elementFromPoint(x, y);
+    if (ignoreInteractive(probe)) {
+      return false;
+    }
+    const base = rangeFromPoint(x, y);
+    if (!base) {
+      return false;
+    }
+    const extracted = wordAndContext(base);
+    if (!extracted) {
+      return false;
+    }
+    lastTranslateAt = Date.now();
+    beginTranslate(x, y, extracted, ev);
+    return true;
+  }
+
+  document.addEventListener(
+    "contextmenu",
+    (e) => {
+      if (ignoreInteractive(e.target)) {
+        return;
+      }
+      tryBeginFromPoint(e.clientX, e.clientY, e);
     },
     true,
+  );
+
+  document.addEventListener(
+    "touchstart",
+    (e) => {
+      if (e.touches.length !== 1) {
+        return;
+      }
+      if (ignoreInteractive(e.target)) {
+        return;
+      }
+      const t = e.touches[0];
+      touchStart.x = t.clientX;
+      touchStart.y = t.clientY;
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+      }
+      longPressTimer = setTimeout(() => {
+        longPressTimer = null;
+        tryBeginFromPoint(touchStart.x, touchStart.y, null);
+      }, 520);
+    },
+    { passive: true },
+  );
+
+  document.addEventListener(
+    "touchmove",
+    (e) => {
+      if (!longPressTimer || e.touches.length !== 1) {
+        return;
+      }
+      const t = e.touches[0];
+      const dx = t.clientX - touchStart.x;
+      const dy = t.clientY - touchStart.y;
+      if (dx * dx + dy * dy > 14 * 14) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    },
+    { passive: true },
+  );
+
+  document.addEventListener(
+    "touchend",
+    () => {
+      if (longPressTimer) {
+        clearTimeout(longPressTimer);
+        longPressTimer = null;
+      }
+    },
+    { passive: true },
   );
 })();

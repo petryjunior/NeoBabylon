@@ -57,10 +57,11 @@
                 android:hint="@string/hint_url"
                 app:endIconMode="clear_text">
 
-                <com.google.android.material.textfield.TextInputEditText
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
                     android:id="@+id/urlField"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:completionThreshold="1"
                     android:imeOptions="actionGo"
                     android:inputType="textUri"
                     android:minHeight="48dp"
