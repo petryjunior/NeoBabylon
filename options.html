@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NeoBabylon settings</title>
+    <style>
+      :root {
+        font-family: system-ui, sans-serif;
+        line-height: 1.45;
+        color: #1a1a1a;
+        background: #f6f6f8;
+      }
+      body {
+        max-width: 40rem;
+        margin: 2rem auto;
+        padding: 0 1rem 3rem;
+      }
+      h1 {
+        font-size: 1.35rem;
+        font-weight: 650;
+      }
+      fieldset {
+        border: 1px solid #d8d8e0;
+        border-radius: 10px;
+        padding: 1rem 1.1rem;
+        margin: 0 0 1rem;
+        background: #fff;
+      }
+      legend {
+        padding: 0 0.35rem;
+        font-weight: 600;
+      }
+      label {
+        display: block;
+        margin: 0.65rem 0 0.2rem;
+        font-size: 0.9rem;
+      }
+      input[type="password"],
+      input[type="url"],
+      select {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 0.45rem 0.5rem;
+        border-radius: 6px;
+        border: 1px solid #c8c8d4;
+        font: inherit;
+      }
+      .hint {
+        font-size: 0.8rem;
+        color: #555;
+        margin: 0.25rem 0 0;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+      }
+      button {
+        margin-top: 1rem;
+        padding: 0.55rem 1rem;
+        border-radius: 8px;
+        border: none;
+        background: #2563eb;
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #1d4ed8;
+      }
+      #status {
+        margin-top: 0.75rem;
+        font-size: 0.9rem;
+      }
+      #status.ok {
+        color: #15803d;
+      }
+      #status.err {
+        color: #b91c1c;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>NeoBabylon</h1>
+    <p>
+      Keys stay on this device in
+      <code>chrome.storage.local</code>. Do not publish a build that embeds
+      your key; use a backend proxy if you ship to others.
+    </p>
+    <form id="form">
+      <fieldset>
+        <legend>OpenAI</legend>
+        <label for="apiKey">API key</label>
+        <input
+          id="apiKey"
+          type="password"
+          autocomplete="off"
+          placeholder="sk-…"
+        />
+        <p class="hint">Stored only in this browser profile.</p>
+        <label for="proxyUrl">Optional proxy URL (POST JSON body)</label>
+        <input
+          id="proxyUrl"
+          type="url"
+          placeholder="https://your-server.example/translate"
+        />
+        <p class="hint">
+          If set, the extension POSTs
+          <code>{ word, context, targetLang, includeDefinition }</code> to
+          your server instead of calling OpenAI directly. Your server should
+          add the secret and call OpenAI.
+        </p>
+      </fieldset>
+      <fieldset>
+        <legend>Translation</legend>
+        <label for="targetLang">Target language</label>
+        <select id="targetLang"></select>
+        <div class="row">
+          <input id="includeDefinition" type="checkbox" />
+          <label for="includeDefinition" style="margin: 0"
+            >Include a short definition / gloss when useful</label
+          >
+        </div>
+        <div class="row">
+          <input id="requireAlt" type="checkbox" checked />
+          <label for="requireAlt" style="margin: 0"
+            >Require Alt+click (recommended so normal clicks still work)</label
+          >
+        </div>
+      </fieldset>
+      <button type="submit">Save</button>
+    </form>
+    <p id="status" role="status"></p>
+    <script src="options.js"></script>
+  </body>
+</html>
