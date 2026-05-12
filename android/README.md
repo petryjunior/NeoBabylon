@@ -15,6 +15,10 @@ This is **not** a Chrome extension. It is a tiny **WebView browser** you install
 3. Let Gradle sync; use **JDK 17**.
 4. Run **Run > Run 'app'** on a device or emulator (Android 8+).
 
+If the app **closes immediately on open**, plug in USB with debugging on, then in a PC terminal run  
+`"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" logcat -d | findstr AndroidRuntime`  
+and look for the **FATAL EXCEPTION** stack trace (often a layout/theme issue on first launch).
+
 First launch: **toolbar menu → API key & language**, paste your OpenAI key and target language, **Save**. Then load a site from the URL bar and **long-press a word**.
 
 ## How it maps to desktop
