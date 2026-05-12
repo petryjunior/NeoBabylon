@@ -3,7 +3,7 @@ package dev.neobabylon.webview
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.materialswitch.MaterialSwitch
+import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.textfield.TextInputEditText
 
 class SettingsActivity : AppCompatActivity() {
@@ -15,7 +15,7 @@ class SettingsActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(NeoBridge.PREFS_NAME, MODE_PRIVATE)
         val apiKeyField = findViewById<TextInputEditText>(R.id.apiKeyField)
         val targetLangField = findViewById<TextInputEditText>(R.id.targetLangField)
-        val includeDefinitionSwitch = findViewById<MaterialSwitch>(R.id.includeDefinitionSwitch)
+        val includeDefinitionSwitch = findViewById<SwitchMaterial>(R.id.includeDefinitionSwitch)
         val saveButton = findViewById<MaterialButton>(R.id.saveButton)
 
         apiKeyField.setText(prefs.getString("apiKey", "").orEmpty())

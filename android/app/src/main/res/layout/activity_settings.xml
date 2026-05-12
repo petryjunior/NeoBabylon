@@ -11,6 +11,7 @@
         android:orientation="vertical">
 
         <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="@string/api_key_hint">
@@ -23,6 +24,7 @@
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
@@ -36,7 +38,7 @@
                 android:text="English" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <com.google.android.material.materialswitch.MaterialSwitch
+        <com.google.android.material.switchmaterial.SwitchMaterial
             android:id="@+id/includeDefinitionSwitch"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
