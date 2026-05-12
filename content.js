@@ -329,27 +329,53 @@
     }
   });
 
-  document.addEventListener(
-    "click",
-    async (e) => {
-      try {
-        let stored;
-        try {
-          stored = await chrome.storage.local.get([
-            "requireAlt",
-            "targetLang",
-            "includeDefinition",
-          ]);
-        } catch (err) {
-          if (isStaleExtensionContext(err)) {
-            showError(e.clientX, e.clientY, STALE_CONTEXT_MSG);
-            armDismiss();
+  const STORAGE_KEYS = ["requireAlt", "targetLang", "includeDefinition"];
+
+  /** Mirrors options; updated from storage so click handler stays synchronous. */
+  let cachedUi = {
+    requireAlt: true,
+    targetLang: "English",
+    includeDefinition: false,
+  };
+
+  function refreshCachedUi() {
+    try {
+      chrome.storage.local.get(STORAGE_KEYS, (r) => {
+        if (chrome.runtime.lastError) {
+          if (
+            isStaleExtensionContext(chrome.runtime.lastError.message || "")
+          ) {
             return;
           }
-          throw err;
+          return;
         }
+        if (r && typeof r === "object") {
+          cachedUi = { ...cachedUi, ...r };
+        }
+      });
+    } catch (err) {
+      if (!isStaleExtensionContext(err)) {
+        console.error("[NeoBabylon] refreshCachedUi", err);
+      }
+    }
+  }
 
-        const requireAlt = stored.requireAlt !== false;
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local") return;
+    for (const k of STORAGE_KEYS) {
+      if (Object.prototype.hasOwnProperty.call(changes, k)) {
+        cachedUi[k] = /** @type {any} */ (changes[k]).newValue;
+      }
+    }
+  });
+
+  refreshCachedUi();
+
+  document.addEventListener(
+    "click",
+    (e) => {
+      try {
+        const requireAlt = cachedUi.requireAlt !== false;
         if (requireAlt && !e.altKey) return;
 
         const t = /** @type {HTMLElement} */ (e.target);
@@ -371,36 +397,67 @@
 
         showLoading(x, y, extracted.word);
 
-        chrome.runtime.sendMessage(
-          {
-            type: "NEO_BABYLON_TRANSLATE",
-            payload: {
-              word: extracted.word,
-              context: extracted.context,
-              targetLang: stored.targetLang || "English",
-              includeDefinition: Boolean(stored.includeDefinition),
-            },
-          },
-          (response) => {
-            if (chrome.runtime.lastError) {
-              showError(
-                x,
-                y,
-                userFacingExtensionError(chrome.runtime.lastError.message),
-              );
+        void (async () => {
+          try {
+            let stored;
+            try {
+              stored = await chrome.storage.local.get(STORAGE_KEYS);
+            } catch (err) {
+              removePanel();
+              if (isStaleExtensionContext(err)) {
+                showError(x, y, STALE_CONTEXT_MSG);
+                armDismiss();
+                return;
+              }
+              throw err;
+            }
+
+            chrome.runtime.sendMessage(
+              {
+                type: "NEO_BABYLON_TRANSLATE",
+                payload: {
+                  word: extracted.word,
+                  context: extracted.context,
+                  targetLang: stored.targetLang || "English",
+                  includeDefinition: Boolean(stored.includeDefinition),
+                },
+              },
+              (response) => {
+                if (chrome.runtime.lastError) {
+                  showError(
+                    x,
+                    y,
+                    userFacingExtensionError(chrome.runtime.lastError.message),
+                  );
+                  armDismiss();
+                  return;
+                }
+                if (!response?.ok) {
+                  showError(x, y, response?.error || "Unknown error.");
+                  armDismiss();
+                  return;
+                }
+                showResult(x, y, extracted.word, response.result);
+                requestAnimationFrame(() => placePanel(x, y));
+                armDismiss();
+              },
+            );
+          } catch (err) {
+            removePanel();
+            if (isStaleExtensionContext(err)) {
+              showError(x, y, STALE_CONTEXT_MSG);
               armDismiss();
               return;
             }
-            if (!response?.ok) {
-              showError(x, y, response?.error || "Unknown error.");
-              armDismiss();
-              return;
-            }
-            showResult(x, y, extracted.word, response.result);
-            requestAnimationFrame(() => placePanel(x, y));
+            console.error("[NeoBabylon]", err);
+            showError(
+              x,
+              y,
+              err instanceof Error ? err.message : String(err),
+            );
             armDismiss();
-          },
-        );
+          }
+        })();
       } catch (err) {
         if (isStaleExtensionContext(err)) {
           showError(e.clientX, e.clientY, STALE_CONTEXT_MSG);
