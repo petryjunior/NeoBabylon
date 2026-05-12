@@ -11,8 +11,8 @@ function cacheKey(word, context, targetLang, includeDefinition, scope) {
     t: targetLang,
     d: includeDefinition,
     s: scope || "word",
-    // Bust cache when word-mode prompts change (e.g. phrasal-verb definition rules).
-    pv: 1,
+    // Bust cache when word-mode prompts / definition normalization change.
+    pv: 2,
   });
 }
 
@@ -50,6 +50,21 @@ function parseJsonReply(body) {
 }
 
 /**
+ * Word mode: never leave definition empty / literal "null" for clients that show it.
+ * @param {string} word
+ * @param {string} translation
+ * @param {string | null | undefined} definition
+ */
+function normalizeWordDefinition(word, translation, definition) {
+  let d = definition == null ? "" : String(definition).trim();
+  if (!d || /^null$/i.test(d) || /^undefined$/i.test(d)) {
+    const t = String(translation || "").trim();
+    return t || String(word || "").trim() || "—";
+  }
+  return d;
+}
+
+/**
  * @param {string} apiKey
  * @param {{
  *   word: string,
@@ -72,13 +87,11 @@ async function callOpenAI(apiKey, payload) {
     : [
         "You help users understand words on web pages.",
         "Given a surface word (possibly incomplete if hyphenated across lines—use context) and a short surrounding context, respond with JSON only.",
-        'Schema: {"translation": string, "definition": string | null}.',
+        'Schema: {"translation": string, "definition": string}.',
+        "Both fields are required. definition must be a non-empty string in the TARGET language (never JSON null, never the literal text null, never an empty string).",
         "Detect whether the surface word belongs to a phrasal verb, separable verb, verb+particle idiom, or similar multi-word verbal expression in the context (particle may be adjacent or separated across words).",
         "translation: natural target-language equivalent for how the surface word reads in this sentence; if it participates in such a multi-word verbal unit, reflect that unit's contextual sense (a short multi-word gloss is fine when clearer than a single word).",
-        "definition: always in the TARGET language.",
-        payload.includeDefinition
-          ? "When a multi-word verbal unit applies, the definition should name the full expression (as it appears in the context) and briefly explain its meaning here—not only the isolated surface word. Otherwise give a brief gloss when it adds clarity, or null. Cap at about 60 words."
-          : 'Usually set "definition" to null. Exception: if a multi-word verbal unit applies as above, set definition to that concise phrasal explanation (name the full expression). If no such unit applies, null.',
+        "definition: one to three sentences in the TARGET language. When a multi-word verbal unit applies, name the full expression as it appears in the context and explain its meaning here. Otherwise give a simple contextual gloss: what the word does in this sentence. Cap at about 80 words.",
       ].join(" ");
 
   const passage = payload.word.slice(0, 12000);
@@ -168,7 +181,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     } = message.payload;
     const effectiveScope = scope === "selection" ? "selection" : "word";
     const effectiveIncludeDef =
-      effectiveScope === "selection" ? false : Boolean(includeDefinition);
+      effectiveScope === "selection" ? false : includeDefinition !== false;
 
     const key = cacheKey(
       word,
@@ -201,14 +214,28 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       word,
       context,
       targetLang,
-      includeDefinition: effectiveIncludeDef,
+      // Word lookups always request a gloss from OpenAI/proxy; UI may hide it when the user turns definitions off.
+      includeDefinition: effectiveScope === "word" ? true : false,
       scope: effectiveScope,
     };
 
     try {
-      const result = proxyUrl
+      let result = proxyUrl
         ? await callProxy(proxyUrl, outbound)
         : await callOpenAI(apiKey, outbound);
+      if (effectiveScope === "word") {
+        result = {
+          translation: result.translation,
+          definition: normalizeWordDefinition(
+            word,
+            result.translation,
+            result.definition,
+          ),
+        };
+        if (!effectiveIncludeDef) {
+          result = { ...result, definition: null };
+        }
+      }
       cacheSet(key, result);
       sendResponse({ ok: true, result });
     } catch (e) {

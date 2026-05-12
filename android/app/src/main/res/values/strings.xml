@@ -9,5 +9,5 @@
     <string name="save">Save</string>
     <string name="api_key_hint">OpenAI API key</string>
     <string name="target_lang">Target language</string>
-    <string name="include_definition">Include short definition (word mode)</string>
+    <string name="include_definition">Show definition under word translations</string>
 </resources>

@@ -25,12 +25,6 @@ object OpenAi {
         }
         val targetLang =
             prefs.getString("targetLang", null)?.trim().orEmpty().ifEmpty { "English" }
-        val includeDefinition =
-            if (sentenceMode) {
-                false
-            } else {
-                prefs.getBoolean("includeDefinition", false)
-            }
 
         val system =
             if (sentenceMode) {
@@ -49,22 +43,17 @@ object OpenAi {
                 listOf(
                     "You help users understand words on web pages.",
                     "Given a surface word and a short surrounding context, respond with JSON only.",
-                    """Schema: {"translation": string, "definition": string | null}.""",
+                    """Schema: {"translation": string, "definition": string}.""",
+                    "Both fields are required. definition must be a non-empty string in the TARGET language " +
+                        """(never JSON null, never the literal text "null", never an empty string).""",
                     multiword,
                     "translation: natural target-language equivalent for how the surface word reads in this sentence; " +
                         "if it participates in such a multi-word verbal unit, reflect that unit's contextual sense " +
                         "(a short multi-word gloss is fine when clearer than a single word).",
-                    "definition: always in the TARGET language.",
-                    if (includeDefinition) {
-                        "When a multi-word verbal unit applies, the definition should name the full expression " +
-                            "(as it appears in the context) and briefly explain its meaning here—not only the " +
-                            "isolated surface word. Otherwise give a brief gloss when it adds clarity, or null. " +
-                            "Cap at about 60 words."
-                    } else {
-                        """Usually set "definition" to null. Exception: if a multi-word verbal unit applies as above, """ +
-                            "set definition to that concise phrasal explanation (name the full expression). " +
-                            "If no such unit applies, null."
-                    },
+                    "definition: one to three sentences in the TARGET language. When a multi-word verbal unit applies, " +
+                        "name the full expression as it appears in the context and explain its meaning here. " +
+                        "Otherwise give a simple contextual gloss: what the word does in this sentence. " +
+                        "Cap at about 80 words.",
                 ).joinToString(" ")
             }
 
@@ -135,7 +124,9 @@ object OpenAi {
             try {
                 JSONObject(content.trim())
             } catch (_: Exception) {
-                return JSONObject().put("translation", content.trim()).put("definition", JSONObject.NULL)
+                val t = content.trim()
+                val gloss = if (sentenceMode) JSONObject.NULL else glossOrFallback(word, t, null)
+                return JSONObject().put("translation", t).put("definition", gloss)
             }
         val translation =
             when {
@@ -144,11 +135,36 @@ object OpenAi {
                 else -> content.trim()
             }
         val definition =
-            if (parsed.isNull("definition")) {
+            if (sentenceMode) {
                 JSONObject.NULL
             } else {
-                parsed.get("definition")
+                val raw =
+                    if (parsed.isNull("definition")) {
+                        null
+                    } else {
+                        parsed.get("definition")
+                    }
+                glossOrFallback(word, translation, raw)
             }
         return JSONObject().put("translation", translation).put("definition", definition)
+    }
+
+    /** Ensures word mode always returns a non-empty gloss string (never JSON null). */
+    private fun glossOrFallback(word: String, translation: String, raw: Any?): String {
+        val s =
+            when (raw) {
+                null, JSONObject.NULL -> ""
+                is String -> raw.trim()
+                else -> raw.toString().trim()
+            }
+        if (s.isNotEmpty() && !s.equals("null", ignoreCase = true) && !s.equals("undefined", ignoreCase = true)) {
+            return s
+        }
+        val t = translation.trim()
+        if (t.isNotEmpty()) {
+            return t
+        }
+        val w = word.trim()
+        return w.ifEmpty { "—" }
     }
 }

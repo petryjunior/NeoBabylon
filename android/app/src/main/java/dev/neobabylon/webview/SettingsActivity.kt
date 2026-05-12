@@ -22,7 +22,7 @@ class SettingsActivity : AppCompatActivity() {
         targetLangField.setText(
             prefs.getString("targetLang", null)?.trim().orEmpty().ifEmpty { "English" },
         )
-        includeDefinitionSwitch.isChecked = prefs.getBoolean("includeDefinition", false)
+        includeDefinitionSwitch.isChecked = prefs.getBoolean("includeDefinition", true)
 
         saveButton.setOnClickListener {
             prefs

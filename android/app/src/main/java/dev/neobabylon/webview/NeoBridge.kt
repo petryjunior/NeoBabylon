@@ -30,7 +30,13 @@ class NeoBridge(
                     val context = payload.optString("context", word)
                     val sentenceMode = payload.optBoolean("sentenceMode", false)
                     val result = OpenAi.translate(prefs, word, context, sentenceMode)
-                    JSONObject().put("ok", true).put("result", result).toString()
+                    val trimmed =
+                        if (!sentenceMode && !prefs.getBoolean("includeDefinition", true)) {
+                            JSONObject().put("translation", result.getString("translation"))
+                        } else {
+                            result
+                        }
+                    JSONObject().put("ok", true).put("result", trimmed).toString()
                 } catch (e: Exception) {
                     JSONObject()
                         .put("ok", false)

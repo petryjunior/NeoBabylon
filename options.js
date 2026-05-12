@@ -45,7 +45,7 @@ async function load() {
     const v = data.targetLang || "English";
     langEl.value = LANGS.some((l) => l.value === v) ? v : "English";
   }
-  if (defEl) defEl.checked = Boolean(data.includeDefinition);
+  if (defEl) defEl.checked = data.includeDefinition !== false;
   if (altEl) altEl.checked = data.requireAlt !== false;
 }
 

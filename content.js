@@ -256,9 +256,12 @@
     panelEl.setAttribute("aria-live", "polite");
     panelEl.setAttribute("aria-label", "Translation");
     panelEl.style.position = "fixed";
+    const defText = result.definition ? String(result.definition).trim() : "";
     const def =
-      result.definition && result.definition.trim()
-        ? `<div class="nb-def">${escapeHtml(result.definition.trim())}</div>`
+      defText &&
+      !/^null$/i.test(defText) &&
+      !/^undefined$/i.test(defText)
+        ? `<div class="nb-def">${escapeHtml(defText)}</div>`
         : "";
     panelEl.innerHTML = `
       <button type="button" class="nb-close" aria-label="Close">×</button>
@@ -378,7 +381,7 @@
   let cachedUi = {
     requireAlt: true,
     targetLang: "English",
-    includeDefinition: false,
+    includeDefinition: true,
   };
 
   function refreshCachedUi() {
@@ -459,7 +462,7 @@
               word: extracted.word,
               context: extracted.context,
               targetLang: stored.targetLang || "English",
-              includeDefinition: Boolean(stored.includeDefinition),
+              includeDefinition: stored.includeDefinition !== false,
             });
           } catch (err) {
             removePanel();

@@ -226,7 +226,10 @@
     panelEl.className = "nb-panel";
     panelEl.style.position = "fixed";
     const def =
-      result.definition && String(result.definition).trim()
+      result.definition &&
+      String(result.definition).trim() &&
+      !/^null$/i.test(String(result.definition).trim()) &&
+      !/^undefined$/i.test(String(result.definition).trim())
         ? `<div class="nb-def">${escapeHtml(String(result.definition).trim())}</div>`
         : "";
     const canSentence =
