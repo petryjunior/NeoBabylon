@@ -225,6 +225,7 @@
     panelEl.setAttribute("aria-live", "polite");
     panelEl.setAttribute("aria-label", "Translation");
     panelEl.style.position = "fixed";
+    const def =
       result.definition && result.definition.trim()
         ? `<div class="nb-def">${escapeHtml(result.definition.trim())}</div>`
         : "";
