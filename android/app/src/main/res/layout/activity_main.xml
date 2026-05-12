@@ -61,7 +61,7 @@
                     android:id="@+id/urlField"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:completionThreshold="1"
+                    android:completionThreshold="0"
                     android:imeOptions="actionGo"
                     android:inputType="textUri"
                     android:minHeight="48dp"

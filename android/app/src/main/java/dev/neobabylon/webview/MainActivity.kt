@@ -102,7 +102,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupUrlAutocomplete() {
         val field = binding.urlField
-        field.threshold = 1
+        field.threshold = 0
         field.setOnClickListener { field.showDropDown() }
         field.setOnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
@@ -121,6 +121,7 @@ class MainActivity : AppCompatActivity() {
         val snapshot = UrlHistory.load(prefs)
         val adapter = UrlHistoryAdapter(this, snapshot)
         binding.urlField.setAdapter(adapter)
+        adapter.filter.filter(null)
     }
 
     private fun loadFromField() {
