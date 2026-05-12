@@ -11,6 +11,8 @@ function cacheKey(word, context, targetLang, includeDefinition, scope) {
     t: targetLang,
     d: includeDefinition,
     s: scope || "word",
+    // Bust cache when word-mode prompts change (e.g. phrasal-verb definition rules).
+    pv: 1,
   });
 }
 

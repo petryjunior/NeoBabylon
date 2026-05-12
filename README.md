@@ -1,6 +1,6 @@
 # NeoBabylon
 
-Chrome extension (Manifest V3): **Alt+click** a word for a contextual translation, or **right-click selected text** and choose **Translate selection with NeoBabylon** (OpenAI). Optional short definition for word mode in settings.
+Chrome extension (Manifest V3): **Alt+click** a word for a contextual translation, or **right-click selected text** and choose **Translate selection with NeoBabylon** (OpenAI). Optional short definition for word mode in settings. Word mode also asks the model to detect **phrasal verbs** (and similar verb+particle units); when the tapped word is part of one, the **definition** line under the translation can explain the whole expression—even if “include definition” is off.
 
 For **Android (solo)**, see the WebView app in [`android/README.md`](android/README.md): use the **API key & language** button, then the address bar; **long-press** a word to translate similarly to desktop.
 
@@ -42,3 +42,5 @@ If `proxyUrl` is set in options, the background worker `POST`s JSON:
 Your server should validate the user, attach the API key, call OpenAI, and return JSON like:
 
 `{ "translation": "...", "definition": "..." }` (definition may be `null`).
+
+Use the same **word-mode** system prompt behavior as `background.js` (phrasal-verb detection in `definition` when `includeDefinition` is false, unless you intentionally differ).
