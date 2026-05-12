@@ -41,6 +41,6 @@ If `proxyUrl` is set in options, the background worker `POST`s JSON:
 
 Your server should validate the user, attach the API key, call OpenAI, and return JSON like:
 
-`{ "translation": "...", "definition": "..." }` (`definition` must be **English** for word mode; `translation` is in the target language. The client normalizes empty or literal `"null"` responses).
+`{ "translation": "...", "definition": "..." }` (`definition` must be **English** for word mode—short for simple words, longer only when phrasal or genuinely tricky; `translation` is in the target language. The client normalizes empty or literal `"null"` responses).
 
 Use the same **word-mode** system prompt behavior as `background.js` (English gloss + phrasal-verb handling, target language for translation only).

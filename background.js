@@ -12,7 +12,7 @@ function cacheKey(word, context, targetLang, includeDefinition, scope) {
     d: includeDefinition,
     s: scope || "word",
     // Bust cache when word-mode prompts / definition normalization change.
-    pv: 3,
+    pv: 4,
   });
 }
 
@@ -98,7 +98,7 @@ async function callOpenAI(apiKey, payload) {
         "Both fields are required. translation must be in the user's requested target language. definition must always be written in clear English only (never the target language, never JSON null, never the literal text null, never an empty string).",
         "Detect whether the surface word belongs to a phrasal verb, separable verb, verb+particle idiom, or similar multi-word verbal expression in the context (particle may be adjacent or separated across words).",
         "translation: natural target-language equivalent for how the surface word reads in this sentence; if it participates in such a multi-word verbal unit, reflect that unit's contextual sense (a short multi-word gloss is fine when clearer than a single word).",
-        "definition: one to three sentences in English only. When a multi-word verbal unit applies, name the full expression as it appears in the context (original wording) and explain its meaning in English. Otherwise give a simple English contextual gloss: what the word does in this sentence. Cap at about 80 words.",
+        "definition: English only. Match length to difficulty. For a plain word in a straightforward use, one tight phrase or a single short sentence (aim under ~22 words; no filler). When a multi-word verbal unit applies, or the sense is idiomatic, technical, or otherwise non-obvious, you may use up to two or three sentences (cap about 72 words). Name the full expression in context when explaining a phrasal or fixed collocation.",
       ].join(" ");
 
   const passage = payload.word.slice(0, 12000);

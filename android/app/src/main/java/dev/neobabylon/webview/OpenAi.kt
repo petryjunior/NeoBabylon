@@ -51,10 +51,10 @@ object OpenAi {
                     "translation: natural target-language equivalent for how the surface word reads in this sentence; " +
                         "if it participates in such a multi-word verbal unit, reflect that unit's contextual sense " +
                         "(a short multi-word gloss is fine when clearer than a single word).",
-                    "definition: one to three sentences in English only. When a multi-word verbal unit applies, " +
-                        "name the full expression as it appears in the context (original wording) and explain its meaning in English. " +
-                        "Otherwise give a simple English contextual gloss: what the word does in this sentence. " +
-                        "Cap at about 80 words.",
+                    "definition: English only. Match length to difficulty. " +
+                        "For a plain word in a straightforward use, one tight phrase or a single short sentence (aim under ~22 words; no filler). " +
+                        "When a multi-word verbal unit applies, or the sense is idiomatic, technical, or otherwise non-obvious, you may use up to two or three sentences (cap about 72 words). " +
+                        "Name the full expression in context when explaining a phrasal or fixed collocation.",
                 ).joinToString(" ")
             }
 
