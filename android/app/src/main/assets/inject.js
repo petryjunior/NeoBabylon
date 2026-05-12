@@ -154,6 +154,7 @@
           cursor: pointer;
         }
         .nb-rowbtn:active { background: rgba(255,255,255,0.16); }
+      `;
       shadow.appendChild(style);
     } else if (!shadow) {
       shadow = host.shadowRoot;
