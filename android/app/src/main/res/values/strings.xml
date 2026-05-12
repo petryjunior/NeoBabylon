@@ -2,7 +2,8 @@
 <resources>
     <string name="app_name">NeoBabylon</string>
     <string name="settings_title">NeoBabylon settings</string>
-    <string name="hint_url">https://…</string>
+    <string name="hint_url">Website address</string>
+    <string name="hint_long_press">Tip: press and hold a word to translate.</string>
     <string name="go">Go</string>
     <string name="settings">API key &amp; language</string>
     <string name="save">Save</string>

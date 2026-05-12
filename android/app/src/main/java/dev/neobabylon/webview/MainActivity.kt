@@ -5,7 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Base64
 import android.util.Log
-import android.view.MenuItem
+import android.view.View
 import android.view.inputmethod.EditorInfo
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
@@ -23,10 +23,10 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        setSupportActionBar(binding.toolbar)
 
-        binding.toolbar.inflateMenu(R.menu.main_menu)
-        binding.toolbar.setOnMenuItemClickListener(::onToolbarMenu)
+        binding.settingsButton.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
 
         val settings = binding.webView.settings
         settings.javaScriptEnabled = true
@@ -34,14 +34,30 @@ class MainActivity : AppCompatActivity() {
         settings.setSupportZoom(true)
         settings.builtInZoomControls = true
         settings.displayZoomControls = false
+        settings.useWideViewPort = true
+        settings.loadWithOverviewMode = true
 
-        binding.webView.webChromeClient = WebChromeClient()
+        binding.webView.webChromeClient =
+            object : WebChromeClient() {
+                override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                    super.onProgressChanged(view, newProgress)
+                    if (newProgress in 1..99) {
+                        binding.progressBar.visibility = View.VISIBLE
+                        binding.progressBar.progress = newProgress
+                    } else {
+                        binding.progressBar.visibility = View.GONE
+                    }
+                }
+            }
         binding.webView.addJavascriptInterface(NeoBridge(this, binding.webView), "NeoAndroid")
         binding.webView.webViewClient =
             object : WebViewClient() {
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
                     view ?: return
+                    if (!url.isNullOrBlank()) {
+                        binding.urlField.setText(url)
+                    }
                     injectNeoScript(view)
                 }
             }
@@ -72,14 +88,6 @@ class MainActivity : AppCompatActivity() {
         loadFromField()
     }
 
-    private fun onToolbarMenu(item: MenuItem): Boolean {
-        if (item.itemId == R.id.action_settings) {
-            startActivity(Intent(this, SettingsActivity::class.java))
-            return true
-        }
-        return false
-    }
-
     private fun loadFromField() {
         var url = binding.urlField.text?.toString()?.trim().orEmpty()
         if (url.isEmpty()) {
@@ -88,6 +96,7 @@ class MainActivity : AppCompatActivity() {
         if (!url.startsWith("http://") && !url.startsWith("https://")) {
             url = "https://$url"
         }
+        binding.urlField.setText(url)
         binding.webView.loadUrl(url)
     }
 
