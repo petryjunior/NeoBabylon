@@ -2,8 +2,8 @@
   "manifest_version": 3,
   "name": "NeoBabylon",
   "version": "0.1.0",
-  "description": "Alt-click a word on any page for a contextual translation (OpenAI).",
-  "permissions": ["storage"],
+  "description": "Alt-click a word or right-click a selection to translate (OpenAI).",
+  "permissions": ["storage", "contextMenus"],
   "host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "service_worker": "background.js"
@@ -13,7 +13,7 @@
     "open_in_tab": true
   },
   "action": {
-    "default_title": "NeoBabylon — Alt-click a word to translate"
+    "default_title": "NeoBabylon — Alt-click a word or translate selection"
   },
   "content_scripts": [
     {

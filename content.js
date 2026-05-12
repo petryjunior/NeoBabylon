@@ -322,6 +322,49 @@
     }
   }
 
+  function truncateForHeader(text, max) {
+    const m = max ?? 120;
+    if (text.length <= m) return text;
+    return text.slice(0, m - 1) + "…";
+  }
+
+  /**
+   * @param {number} x
+   * @param {number} y
+   * @param {string} headerLabel
+   * @param {{
+   *   word: string,
+   *   context: string,
+   *   targetLang: string,
+   *   includeDefinition: boolean,
+   *   scope?: string,
+   * }} payload
+   */
+  function sendTranslateAndShowPanel(x, y, headerLabel, payload) {
+    chrome.runtime.sendMessage(
+      { type: "NEO_BABYLON_TRANSLATE", payload },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          showError(
+            x,
+            y,
+            userFacingExtensionError(chrome.runtime.lastError.message),
+          );
+          armDismiss();
+          return;
+        }
+        if (!response?.ok) {
+          showError(x, y, response?.error || "Unknown error.");
+          armDismiss();
+          return;
+        }
+        showResult(x, y, headerLabel, response.result);
+        requestAnimationFrame(() => placePanel(x, y));
+        armDismiss();
+      },
+    );
+  }
+
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       removePanel();
@@ -412,36 +455,12 @@
               throw err;
             }
 
-            chrome.runtime.sendMessage(
-              {
-                type: "NEO_BABYLON_TRANSLATE",
-                payload: {
-                  word: extracted.word,
-                  context: extracted.context,
-                  targetLang: stored.targetLang || "English",
-                  includeDefinition: Boolean(stored.includeDefinition),
-                },
-              },
-              (response) => {
-                if (chrome.runtime.lastError) {
-                  showError(
-                    x,
-                    y,
-                    userFacingExtensionError(chrome.runtime.lastError.message),
-                  );
-                  armDismiss();
-                  return;
-                }
-                if (!response?.ok) {
-                  showError(x, y, response?.error || "Unknown error.");
-                  armDismiss();
-                  return;
-                }
-                showResult(x, y, extracted.word, response.result);
-                requestAnimationFrame(() => placePanel(x, y));
-                armDismiss();
-              },
-            );
+            sendTranslateAndShowPanel(x, y, extracted.word, {
+              word: extracted.word,
+              context: extracted.context,
+              targetLang: stored.targetLang || "English",
+              includeDefinition: Boolean(stored.includeDefinition),
+            });
           } catch (err) {
             removePanel();
             if (isStaleExtensionContext(err)) {
@@ -469,4 +488,69 @@
     },
     true,
   );
+
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+    if (msg?.type !== "NEO_BABYLON_TRANSLATE_SELECTION") {
+      return;
+    }
+
+    const text = String(msg.payload?.text || "").trim();
+    if (!text) {
+      sendResponse({ ok: false, error: "No selection text." });
+      return;
+    }
+
+    const x = Math.min(
+      Math.max(80, window.innerWidth / 2),
+      window.innerWidth - 80,
+    );
+    const y = Math.min(
+      Math.max(80, window.innerHeight * 0.28),
+      window.innerHeight - 80,
+    );
+
+    const header = truncateForHeader(text, 140);
+    showLoading(x, y, header);
+
+    void (async () => {
+      try {
+        let stored;
+        try {
+          stored = await chrome.storage.local.get(STORAGE_KEYS);
+        } catch (err) {
+          removePanel();
+          if (isStaleExtensionContext(err)) {
+            showError(x, y, STALE_CONTEXT_MSG);
+            armDismiss();
+            return;
+          }
+          throw err;
+        }
+
+        sendTranslateAndShowPanel(x, y, header, {
+          word: text,
+          context: text,
+          targetLang: stored.targetLang || "English",
+          includeDefinition: false,
+          scope: "selection",
+        });
+      } catch (err) {
+        removePanel();
+        if (isStaleExtensionContext(err)) {
+          showError(x, y, STALE_CONTEXT_MSG);
+          armDismiss();
+          return;
+        }
+        console.error("[NeoBabylon]", err);
+        showError(
+          x,
+          y,
+          err instanceof Error ? err.message : String(err),
+        );
+        armDismiss();
+      }
+    })();
+
+    sendResponse({ ok: true });
+  });
 })();

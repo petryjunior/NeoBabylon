@@ -4,12 +4,13 @@ const CACHE_MAX = 100;
 /** @type {Map<string, TranslateResult>} */
 const cache = new Map();
 
-function cacheKey(word, context, targetLang, includeDefinition) {
+function cacheKey(word, context, targetLang, includeDefinition, scope) {
   return JSON.stringify({
     w: word,
     c: context.slice(0, 2000),
     t: targetLang,
     d: includeDefinition,
+    s: scope || "word",
   });
 }
 
@@ -48,28 +49,52 @@ function parseJsonReply(body) {
 
 /**
  * @param {string} apiKey
- * @param {{ word: string, context: string, targetLang: string, includeDefinition: boolean }} payload
+ * @param {{
+ *   word: string,
+ *   context: string,
+ *   targetLang: string,
+ *   includeDefinition: boolean,
+ *   scope?: string,
+ * }} payload
  */
 async function callOpenAI(apiKey, payload) {
-  const system = [
-    "You help users understand words on web pages.",
-    "Given a surface word (possibly incomplete if hyphenated across lines—use context) and a short surrounding context, respond with JSON only.",
-    'Schema: {"translation": string, "definition": string | null}.',
-    "translation: natural translation of that word or phrase in the given target language, matching how it is used in context.",
-    "definition: brief gloss in the TARGET language if useful for a human reader; otherwise null.",
-    payload.includeDefinition
-      ? "Include definition when it adds clarity; keep it under 40 words."
-      : 'Always set "definition" to null.',
-  ].join(" ");
+  const isSelection = payload.scope === "selection";
+  const system = isSelection
+    ? [
+        "You translate text selections from web pages.",
+        "The user highlighted a passage. Translate the ENTIRE passage into the requested target language.",
+        "Preserve meaning and natural tone; do not return a word-by-word gloss unless the passage is a single word.",
+        'Respond with JSON only: {"translation": string, "definition": null}.',
+        'Always set "definition" to null.',
+      ].join(" ")
+    : [
+        "You help users understand words on web pages.",
+        "Given a surface word (possibly incomplete if hyphenated across lines—use context) and a short surrounding context, respond with JSON only.",
+        'Schema: {"translation": string, "definition": string | null}.',
+        "translation: natural translation of that word or phrase in the given target language, matching how it is used in context.",
+        "definition: brief gloss in the TARGET language if useful for a human reader; otherwise null.",
+        payload.includeDefinition
+          ? "Include definition when it adds clarity; keep it under 40 words."
+          : 'Always set "definition" to null.',
+      ].join(" ");
 
-  const user = [
-    `Target language for translation and any gloss: ${payload.targetLang}`,
-    `Word or phrase (surface form): """${payload.word}"""`,
-    "Context (may be truncated):",
-    '"""',
-    payload.context,
-    '"""',
-  ].join("\n");
+  const passage = payload.word.slice(0, 12000);
+  const user = isSelection
+    ? [
+        `Target language for the translation: ${payload.targetLang}`,
+        "Selected passage:",
+        '"""',
+        passage,
+        '"""',
+      ].join("\n")
+    : [
+        `Target language for translation and any gloss: ${payload.targetLang}`,
+        `Word or phrase (surface form): """${payload.word}"""`,
+        "Context (may be truncated):",
+        '"""',
+        payload.context,
+        '"""',
+      ].join("\n");
 
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -103,7 +128,13 @@ async function callOpenAI(apiKey, payload) {
 
 /**
  * @param {string} proxyUrl
- * @param {{ word: string, context: string, targetLang: string, includeDefinition: boolean }} payload
+ * @param {{
+ *   word: string,
+ *   context: string,
+ *   targetLang: string,
+ *   includeDefinition: boolean,
+ *   scope?: string,
+ * }} payload
  */
 async function callProxy(proxyUrl, payload) {
   const res = await fetch(proxyUrl, {
@@ -125,8 +156,24 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   (async () => {
-    const { word, context, targetLang, includeDefinition } = message.payload;
-    const key = cacheKey(word, context, targetLang, includeDefinition);
+    const {
+      word,
+      context,
+      targetLang,
+      includeDefinition,
+      scope,
+    } = message.payload;
+    const effectiveScope = scope === "selection" ? "selection" : "word";
+    const effectiveIncludeDef =
+      effectiveScope === "selection" ? false : Boolean(includeDefinition);
+
+    const key = cacheKey(
+      word,
+      context,
+      targetLang,
+      effectiveIncludeDef,
+      effectiveScope,
+    );
     if (cache.has(key)) {
       sendResponse({ ok: true, result: cache.get(key) });
       return;
@@ -147,20 +194,18 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       return;
     }
 
+    const outbound = {
+      word,
+      context,
+      targetLang,
+      includeDefinition: effectiveIncludeDef,
+      scope: effectiveScope,
+    };
+
     try {
       const result = proxyUrl
-        ? await callProxy(proxyUrl, {
-            word,
-            context,
-            targetLang,
-            includeDefinition,
-          })
-        : await callOpenAI(apiKey, {
-            word,
-            context,
-            targetLang,
-            includeDefinition,
-          });
+        ? await callProxy(proxyUrl, outbound)
+        : await callOpenAI(apiKey, outbound);
       cacheSet(key, result);
       sendResponse({ ok: true, result });
     } catch (e) {
@@ -172,4 +217,49 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   })();
 
   return true;
+});
+
+const SELECTION_MENU_ID = "neobabylon-translate-selection";
+
+function registerContextMenus() {
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: SELECTION_MENU_ID,
+      title: "Translate selection with NeoBabylon",
+      contexts: ["selection"],
+    });
+  });
+}
+
+chrome.runtime.onInstalled.addListener(() => {
+  registerContextMenus();
+});
+registerContextMenus();
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId !== SELECTION_MENU_ID) {
+    return;
+  }
+  const tabId = tab?.id;
+  if (tabId == null) {
+    return;
+  }
+  const text = (info.selectionText || "").trim();
+  if (!text) {
+    return;
+  }
+  const sendOpts =
+    typeof info.frameId === "number" && Number.isFinite(info.frameId)
+      ? { frameId: info.frameId }
+      : {};
+  chrome.tabs
+    .sendMessage(
+      tabId,
+      {
+        type: "NEO_BABYLON_TRANSLATE_SELECTION",
+        payload: { text },
+      },
+      sendOpts,
+    )
+    .catch(() => {});
 });

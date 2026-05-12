@@ -1,6 +1,6 @@
 # NeoBabylon
 
-Chrome extension (Manifest V3): **Alt+click** a word on a webpage to see a **contextual translation** via the OpenAI API (or your own proxy). Optional short definition/gloss in settings.
+Chrome extension (Manifest V3): **Alt+click** a word for a contextual translation, or **right-click selected text** and choose **Translate selection with NeoBabylon** (OpenAI). Optional short definition for word mode in settings.
 
 ## Install (developer mode)
 
@@ -14,6 +14,7 @@ After you click **Reload** on the extension (or load a new build), **refresh any
 ## Permissions
 
 - **storage** — save settings and key locally.
+- **contextMenus** — add “Translate selection with NeoBabylon” to the right-click menu when text is selected.
 - **http(s)://\*/\*** — inject the content script on web pages so Alt+click works while you browse.
 
 For a public Chrome Web Store release, expect questions about broad host access; you can later narrow `matches` or add an onboarding toggle.
@@ -32,7 +33,9 @@ The selected word and a short surrounding text snippet are sent to OpenAI (or yo
 
 If `proxyUrl` is set in options, the background worker `POST`s JSON:
 
-`{ "word", "context", "targetLang", "includeDefinition" }`
+`{ "word", "context", "targetLang", "includeDefinition", "scope" }`
+
+`scope` is `"word"` (default) or `"selection"` for full-passage translation from the context menu.
 
 Your server should validate the user, attach the API key, call OpenAI, and return JSON like:
 
