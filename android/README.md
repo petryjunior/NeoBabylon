@@ -19,7 +19,7 @@ If the app **closes immediately on open**, plug in USB with debugging on, then i
 `"%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe" logcat -d | findstr AndroidRuntime`  
 and look for the **FATAL EXCEPTION** stack trace (often a layout/theme issue on first launch).
 
-First launch: tap **API key & language**, save your key. Use the **address bar**: tap it to see **recent URLs** (and type to filter). **Go** loads the page. **Long-press a word** (or hold ~½ second) to translate; errors show in the red panel if the API fails.
+First launch: tap **API key & language**, save your key. Use the **address bar**: tap it to see **recent URLs** (and type to filter). **Go** loads the page. After a word translation, use **Full sentence** to translate the whole context snippet; **Back to word** returns to the word view. The close control uses plain HTML so it is not garbled by encoding.
 
 ## How it maps to desktop
 

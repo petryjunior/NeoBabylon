@@ -142,10 +142,18 @@ class MainActivity : AppCompatActivity() {
         try {
             val bytes = webView.context.assets.open("inject.js").readBytes()
             val b64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
-            webView.evaluateJavascript(
-                "(function(){try{eval(atob('$b64'));}catch(e){console.error('NeoBabylon inject',e);}})();",
-                null,
-            )
+            // atob() alone corrupts UTF-8 in the script; decode bytes as UTF-8 before eval.
+            val js =
+                "(function(){try{" +
+                    "var b='$b64';" +
+                    "var bin=atob(b);" +
+                    "var a=new Uint8Array(bin.length);" +
+                    "for(var i=0;i<bin.length;i++){a[i]=bin.charCodeAt(i)&0xff;}" +
+                    "var s=new TextDecoder('utf-8').decode(a);" +
+                    "eval(s);" +
+                    "}catch(e){console.error('NeoBabylon inject',e);}" +
+                    "})();"
+            webView.evaluateJavascript(js, null)
         } catch (e: Exception) {
             Log.e("NeoBabylon", "inject failed", e)
         }

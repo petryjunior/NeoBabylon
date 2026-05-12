@@ -13,39 +13,70 @@ import java.nio.charset.StandardCharsets
 object OpenAi {
     private const val API = "https://api.openai.com/v1/chat/completions"
 
-    fun translate(prefs: SharedPreferences, word: String, context: String): JSONObject {
+    fun translate(
+        prefs: SharedPreferences,
+        word: String,
+        context: String,
+        sentenceMode: Boolean = false,
+    ): JSONObject {
         val apiKey = prefs.getString("apiKey", null)?.trim().orEmpty()
         if (apiKey.isEmpty()) {
             throw IllegalStateException("Set your OpenAI API key in NeoBabylon settings.")
         }
         val targetLang =
             prefs.getString("targetLang", null)?.trim().orEmpty().ifEmpty { "English" }
-        val includeDefinition = prefs.getBoolean("includeDefinition", false)
+        val includeDefinition =
+            if (sentenceMode) {
+                false
+            } else {
+                prefs.getBoolean("includeDefinition", false)
+            }
 
         val system =
-            listOf(
-                "You help users understand words on web pages.",
-                "Given a surface word and a short surrounding context, respond with JSON only.",
-                """Schema: {"translation": string, "definition": string | null}.""",
-                "translation: natural translation of that word or phrase in the given target language, matching how it is used in context.",
-                "definition: brief gloss in the TARGET language if useful; otherwise null.",
-                if (includeDefinition) {
-                    "Include definition when it adds clarity; keep it under 40 words."
-                } else {
-                    """Always set "definition" to null."""
-                },
-            ).joinToString(" ")
+            if (sentenceMode) {
+                listOf(
+                    "You translate passages from web pages.",
+                    "The user highlighted a short passage around a tapped word. Translate the ENTIRE passage into the requested target language.",
+                    "Preserve meaning and natural tone; output fluent prose, not a word-by-word gloss.",
+                    """Respond with JSON only: {"translation": string, "definition": null}.""",
+                    """Always set "definition" to null.""",
+                ).joinToString(" ")
+            } else {
+                listOf(
+                    "You help users understand words on web pages.",
+                    "Given a surface word and a short surrounding context, respond with JSON only.",
+                    """Schema: {"translation": string, "definition": string | null}.""",
+                    "translation: natural translation of that word or phrase in the given target language, matching how it is used in context.",
+                    "definition: brief gloss in the TARGET language if useful; otherwise null.",
+                    if (includeDefinition) {
+                        "Include definition when it adds clarity; keep it under 40 words."
+                    } else {
+                        """Always set "definition" to null."""
+                    },
+                ).joinToString(" ")
+            }
 
         val user =
-            buildString {
-                appendLine("Target language for translation and any gloss: $targetLang")
-                append("Word or phrase (surface form): \"\"\"")
-                append(word)
-                appendLine("\"\"\"")
-                appendLine("Context (may be truncated):")
-                append("\"\"\"")
-                append(context)
-                append("\"\"\"")
+            if (sentenceMode) {
+                val passage = (if (word.isNotBlank()) word else context).take(12000)
+                buildString {
+                    appendLine("Target language for the translation: $targetLang")
+                    appendLine("Passage to translate:")
+                    append("\"\"\"")
+                    append(passage)
+                    append("\"\"\"")
+                }
+            } else {
+                buildString {
+                    appendLine("Target language for translation and any gloss: $targetLang")
+                    append("Word or phrase (surface form): \"\"\"")
+                    append(word)
+                    appendLine("\"\"\"")
+                    appendLine("Context (may be truncated):")
+                    append("\"\"\"")
+                    append(context)
+                    append("\"\"\"")
+                }
             }
 
         val body =

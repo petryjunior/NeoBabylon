@@ -28,7 +28,8 @@ class NeoBridge(
                     val payload = JSONObject(payloadJson)
                     val word = payload.getString("word")
                     val context = payload.optString("context", word)
-                    val result = OpenAi.translate(prefs, word, context)
+                    val sentenceMode = payload.optBoolean("sentenceMode", false)
+                    val result = OpenAi.translate(prefs, word, context, sentenceMode)
                     JSONObject().put("ok", true).put("result", result).toString()
                 } catch (e: Exception) {
                     JSONObject()

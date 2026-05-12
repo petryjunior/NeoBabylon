@@ -12,7 +12,7 @@
 
   const isWordChar = (ch) => {
     if (!ch) return false;
-    if (ch === "'" || ch === "’" || ch === "-" || ch === "_") return true;
+    if (ch === "'" || ch === "\u2019" || ch === "-" || ch === "_") return true;
     return /\p{L}|\p{N}/u.test(ch);
   };
 
@@ -142,7 +142,18 @@
           padding: 4px;
         }
         .nb-close:hover { color: #fff; }
-      `;
+        .nb-actions { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .nb-rowbtn {
+          align-self: stretch;
+          padding: 8px 10px;
+          border-radius: 8px;
+          border: 1px solid rgba(255,255,255,0.28);
+          background: rgba(255,255,255,0.08);
+          color: #e5e7eb;
+          font: inherit;
+          cursor: pointer;
+        }
+        .nb-rowbtn:active { background: rgba(255,255,255,0.16); }
       shadow.appendChild(style);
     } else if (!shadow) {
       shadow = host.shadowRoot;
@@ -204,7 +215,10 @@
     placePanel(x, y);
   }
 
-  function showResult(x, y, headerLabel, result) {
+  let lastWordPanel = null;
+
+  function showResult(x, y, headerLabel, result, contextSnippet) {
+    lastWordPanel = { x, y, headerLabel, result, context: contextSnippet };
     const root = ensureShadow();
     removePanel();
     panelEl = document.createElement("div");
@@ -214,13 +228,85 @@
       result.definition && String(result.definition).trim()
         ? `<div class="nb-def">${escapeHtml(String(result.definition).trim())}</div>`
         : "";
+    const canSentence =
+      contextSnippet &&
+      contextSnippet.trim().length > headerLabel.trim().length + 2;
+    const sentenceBtn = canSentence
+      ? '<button type="button" class="nb-rowbtn nb-fullsent">Full sentence</button>'
+      : "";
     panelEl.innerHTML = `
-      <button type="button" class="nb-close" aria-label="Close">×</button>
+      <button type="button" class="nb-close" aria-label="Close">&#215;</button>
       <div class="nb-word">${escapeHtml(headerLabel)}</div>
       <div class="nb-trans">${escapeHtml(result.translation)}</div>
       ${def}
+      <div class="nb-actions">${sentenceBtn}</div>
     `;
     panelEl.querySelector(".nb-close")?.addEventListener("click", removePanel);
+    const fs = panelEl.querySelector(".nb-fullsent");
+    if (fs) {
+      fs.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        runSentenceTranslate(x, y, contextSnippet.trim());
+      });
+    }
+    root?.appendChild(panelEl);
+    placePanel(x, y);
+  }
+
+  function runSentenceTranslate(x, y, passage) {
+    showLoading(x, y, "Sentence...");
+    const cbId = "_neo_" + Date.now() + "_" + Math.floor(Math.random() * 1e9);
+    window[cbId] = function (resp) {
+      delete window[cbId];
+      if (!resp || !resp.ok) {
+        showError(x, y, (resp && resp.error) || "Unknown error.");
+        armDismiss();
+        return;
+      }
+      showSentenceResult(x, y, resp.result.translation);
+      armDismiss();
+    };
+    try {
+      NeoAndroid.translateAsync(
+        JSON.stringify({
+          word: passage,
+          context: passage,
+          sentenceMode: true,
+        }),
+        cbId,
+      );
+    } catch (err) {
+      showError(x, y, err && err.message ? err.message : String(err));
+      armDismiss();
+    }
+  }
+
+  function showSentenceResult(x, y, translationText) {
+    const lp = lastWordPanel;
+    const root = ensureShadow();
+    removePanel();
+    panelEl = document.createElement("div");
+    panelEl.className = "nb-panel";
+    panelEl.style.position = "fixed";
+    const backBtn =
+      lp && lp.result
+        ? '<button type="button" class="nb-rowbtn nb-backword">Back to word</button>'
+        : "";
+    panelEl.innerHTML = `
+      <button type="button" class="nb-close" aria-label="Close">&#215;</button>
+      <div class="nb-word">Full sentence</div>
+      <div class="nb-trans">${escapeHtml(translationText)}</div>
+      <div class="nb-actions">${backBtn}</div>
+    `;
+    panelEl.querySelector(".nb-close")?.addEventListener("click", removePanel);
+    const bk = panelEl.querySelector(".nb-backword");
+    if (bk && lp) {
+      bk.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        showResult(lp.x, lp.y, lp.headerLabel, lp.result, lp.context);
+        armDismiss();
+      });
+    }
     root?.appendChild(panelEl);
     placePanel(x, y);
   }
@@ -232,7 +318,7 @@
     panelEl.className = "nb-panel";
     panelEl.style.position = "fixed";
     panelEl.innerHTML = `
-      <button type="button" class="nb-close" aria-label="Close">×</button>
+      <button type="button" class="nb-close" aria-label="Close">&#215;</button>
       <div class="nb-err">${escapeHtml(message)}</div>
     `;
     panelEl.querySelector(".nb-close")?.addEventListener("click", removePanel);
@@ -286,7 +372,7 @@
           armDismiss();
           return;
         }
-        showResult(x, y, extracted.word, resp.result);
+        showResult(x, y, extracted.word, resp.result, extracted.context);
         requestAnimationFrame(() => placePanel(x, y));
         armDismiss();
       } catch (err) {
