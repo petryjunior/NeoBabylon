@@ -44,15 +44,16 @@ object OpenAi {
                     "You help users understand words on web pages.",
                     "Given a surface word and a short surrounding context, respond with JSON only.",
                     """Schema: {"translation": string, "definition": string}.""",
-                    "Both fields are required. definition must be a non-empty string in the TARGET language " +
-                        """(never JSON null, never the literal text "null", never an empty string).""",
+                    "Both fields are required. translation must be in the user's requested target language. " +
+                        "definition must always be written in clear English only (never the target language, " +
+                        """never JSON null, never the literal text "null", never an empty string).""",
                     multiword,
                     "translation: natural target-language equivalent for how the surface word reads in this sentence; " +
                         "if it participates in such a multi-word verbal unit, reflect that unit's contextual sense " +
                         "(a short multi-word gloss is fine when clearer than a single word).",
-                    "definition: one to three sentences in the TARGET language. When a multi-word verbal unit applies, " +
-                        "name the full expression as it appears in the context and explain its meaning here. " +
-                        "Otherwise give a simple contextual gloss: what the word does in this sentence. " +
+                    "definition: one to three sentences in English only. When a multi-word verbal unit applies, " +
+                        "name the full expression as it appears in the context (original wording) and explain its meaning in English. " +
+                        "Otherwise give a simple English contextual gloss: what the word does in this sentence. " +
                         "Cap at about 80 words.",
                 ).joinToString(" ")
             }
@@ -69,7 +70,8 @@ object OpenAi {
                 }
             } else {
                 buildString {
-                    appendLine("Target language for translation and any gloss: $targetLang")
+                    appendLine("Target language for the translation field only: $targetLang")
+                    appendLine("The definition field must be in English only, regardless of source language.")
                     append("Word or phrase (surface form): \"\"\"")
                     append(word)
                     appendLine("\"\"\"")
@@ -162,9 +164,12 @@ object OpenAi {
         }
         val t = translation.trim()
         if (t.isNotEmpty()) {
-            return t
+            return "No English gloss was returned; the translation line expresses the sense ($t)."
         }
         val w = word.trim()
-        return w.ifEmpty { "—" }
+        if (w.isNotEmpty()) {
+            return "No English gloss available for this token."
+        }
+        return "No English gloss available."
     }
 }

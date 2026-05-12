@@ -1,6 +1,6 @@
 # NeoBabylon
 
-Chrome extension (Manifest V3): **Alt+click** a word for a contextual translation, or **right-click selected text** and choose **Translate selection with NeoBabylon** (OpenAI). Word mode asks the model for a **short definition** every time (contextual gloss, with extra emphasis on **phrasal verbs** when relevant). In **Options**, you can turn off **Show definition** to hide that line in the popup (the API still returns a gloss so the cache stays consistent).
+Chrome extension (Manifest V3): **Alt+click** a word for a contextual translation, or **right-click selected text** and choose **Translate selection with NeoBabylon** (OpenAI). Word mode asks the model for a **short definition in English** every time (contextual gloss, with extra emphasis on **phrasal verbs** when relevant), while the **translation** uses your chosen target language. In **Options**, you can turn off **Show definition** to hide that line in the popup (the API still returns a gloss so the cache stays consistent).
 
 For **Android (solo)**, see the WebView app in [`android/README.md`](android/README.md): use the **API key & language** button, then the address bar; **long-press** a word to translate similarly to desktop.
 
@@ -41,6 +41,6 @@ If `proxyUrl` is set in options, the background worker `POST`s JSON:
 
 Your server should validate the user, attach the API key, call OpenAI, and return JSON like:
 
-`{ "translation": "...", "definition": "..." }` (`definition` should be a short string for word mode; the client normalizes empty or literal `"null"` responses).
+`{ "translation": "...", "definition": "..." }` (`definition` must be **English** for word mode; `translation` is in the target language. The client normalizes empty or literal `"null"` responses).
 
-Use the same **word-mode** system prompt behavior as `background.js` (required gloss + phrasal-verb handling).
+Use the same **word-mode** system prompt behavior as `background.js` (English gloss + phrasal-verb handling, target language for translation only).

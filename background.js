@@ -12,7 +12,7 @@ function cacheKey(word, context, targetLang, includeDefinition, scope) {
     d: includeDefinition,
     s: scope || "word",
     // Bust cache when word-mode prompts / definition normalization change.
-    pv: 2,
+    pv: 3,
   });
 }
 
@@ -59,7 +59,14 @@ function normalizeWordDefinition(word, translation, definition) {
   let d = definition == null ? "" : String(definition).trim();
   if (!d || /^null$/i.test(d) || /^undefined$/i.test(d)) {
     const t = String(translation || "").trim();
-    return t || String(word || "").trim() || "—";
+    if (t) {
+      return `No English gloss was returned; the translation line expresses the sense (${t}).`;
+    }
+    const w = String(word || "").trim();
+    if (w) {
+      return "No English gloss available for this token.";
+    }
+    return "No English gloss available.";
   }
   return d;
 }
@@ -88,10 +95,10 @@ async function callOpenAI(apiKey, payload) {
         "You help users understand words on web pages.",
         "Given a surface word (possibly incomplete if hyphenated across lines—use context) and a short surrounding context, respond with JSON only.",
         'Schema: {"translation": string, "definition": string}.',
-        "Both fields are required. definition must be a non-empty string in the TARGET language (never JSON null, never the literal text null, never an empty string).",
+        "Both fields are required. translation must be in the user's requested target language. definition must always be written in clear English only (never the target language, never JSON null, never the literal text null, never an empty string).",
         "Detect whether the surface word belongs to a phrasal verb, separable verb, verb+particle idiom, or similar multi-word verbal expression in the context (particle may be adjacent or separated across words).",
         "translation: natural target-language equivalent for how the surface word reads in this sentence; if it participates in such a multi-word verbal unit, reflect that unit's contextual sense (a short multi-word gloss is fine when clearer than a single word).",
-        "definition: one to three sentences in the TARGET language. When a multi-word verbal unit applies, name the full expression as it appears in the context and explain its meaning here. Otherwise give a simple contextual gloss: what the word does in this sentence. Cap at about 80 words.",
+        "definition: one to three sentences in English only. When a multi-word verbal unit applies, name the full expression as it appears in the context (original wording) and explain its meaning in English. Otherwise give a simple English contextual gloss: what the word does in this sentence. Cap at about 80 words.",
       ].join(" ");
 
   const passage = payload.word.slice(0, 12000);
@@ -104,7 +111,8 @@ async function callOpenAI(apiKey, payload) {
         '"""',
       ].join("\n")
     : [
-        `Target language for translation and any gloss: ${payload.targetLang}`,
+        `Target language for the translation field only: ${payload.targetLang}`,
+        "The definition field must be in English only, regardless of the page language.",
         `Word or phrase (surface form): """${payload.word}"""`,
         "Context (may be truncated):",
         '"""',
