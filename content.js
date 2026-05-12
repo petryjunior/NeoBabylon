@@ -197,6 +197,9 @@
     removePanel();
     panelEl = document.createElement("div");
     panelEl.className = "nb-panel nb-loading";
+    panelEl.setAttribute("role", "dialog");
+    panelEl.setAttribute("aria-live", "polite");
+    panelEl.setAttribute("aria-label", "Translation");
     panelEl.style.position = "fixed";
     panelEl.style.left = "0";
     panelEl.style.top = "0";
@@ -218,8 +221,10 @@
     removePanel();
     panelEl = document.createElement("div");
     panelEl.className = "nb-panel";
+    panelEl.setAttribute("role", "dialog");
+    panelEl.setAttribute("aria-live", "polite");
+    panelEl.setAttribute("aria-label", "Translation");
     panelEl.style.position = "fixed";
-    const def =
       result.definition && result.definition.trim()
         ? `<div class="nb-def">${escapeHtml(result.definition.trim())}</div>`
         : "";
@@ -244,6 +249,9 @@
     removePanel();
     panelEl = document.createElement("div");
     panelEl.className = "nb-panel";
+    panelEl.setAttribute("role", "alert");
+    panelEl.setAttribute("aria-live", "assertive");
+    panelEl.setAttribute("aria-label", "Translation error");
     panelEl.style.position = "fixed";
     panelEl.innerHTML = `
       <button type="button" class="nb-close" aria-label="Close">×</button>

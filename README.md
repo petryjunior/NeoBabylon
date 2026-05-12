@@ -16,6 +16,12 @@ Chrome extension (Manifest V3): **Alt+click** a word on a webpage to see a **con
 
 For a public Chrome Web Store release, expect questions about broad host access; you can later narrow `matches` or add an onboarding toggle.
 
+## Chrome Web Store checklist (when you publish)
+
+- Host justification: explain that the content script must run on pages where the user Alt-clicks text.
+- Privacy policy URL: disclose that word + snippet are sent to OpenAI (or your proxy) and that the API key is stored locally (or that auth goes through your backend).
+- Single purpose: contextual translation on demand.
+
 ## Privacy
 
 The selected word and a short surrounding text snippet are sent to OpenAI (or your proxy). Do not use on pages you are not allowed to send to a third party.
