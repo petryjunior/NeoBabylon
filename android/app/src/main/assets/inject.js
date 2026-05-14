@@ -345,6 +345,136 @@
     return { word, context };
   }
 
+  const MAX_SENTENCE_CHARS = 520;
+
+  function findBestWordIndex(ctx, word) {
+    const w = word.trim();
+    if (!w) return 0;
+    const lowerCtx = ctx.toLowerCase();
+    const lowerW = w.toLowerCase();
+    let best = -1;
+    let bestDist = Infinity;
+    let pos = 0;
+    while (pos <= ctx.length) {
+      const i = lowerCtx.indexOf(lowerW, pos);
+      if (i < 0) break;
+      const d = Math.abs(i + w.length / 2 - ctx.length / 2);
+      if (d < bestDist) {
+        bestDist = d;
+        best = i;
+      }
+      pos = i + 1;
+    }
+    return best >= 0 ? best : Math.floor(ctx.length / 2);
+  }
+
+  function collapseWs(s) {
+    return s.replace(/\s+/g, " ").trim();
+  }
+
+  function sentenceViaIntlSegmenter(ctx, wordIdx) {
+    if (typeof Intl.Segmenter !== "function") return null;
+    try {
+      const lang =
+        document.documentElement.getAttribute("lang")?.trim() ||
+        navigator.language ||
+        "en";
+      const seg = new Intl.Segmenter([lang, "de", "en"], {
+        granularity: "sentence",
+      });
+      for (const part of seg.segment(ctx)) {
+        const a = part.index;
+        const b = a + part.segment.length;
+        if (wordIdx >= a && wordIdx < b) {
+          const t = collapseWs(part.segment);
+          if (t.length > 0 && t.length <= MAX_SENTENCE_CHARS) {
+            return t;
+          }
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  function isLikelySentenceEnd(ctx, i) {
+    const ch = ctx[i];
+    if (ch === "\n") return true;
+    if (ch === "\u2026" || ch === "\u0964") return true;
+    if (ch === "!" || ch === "?" || ch === ";") return true;
+    if (ch === ".") {
+      const prev = i > 0 ? ctx[i - 1] : "";
+      const next = i + 1 < ctx.length ? ctx[i + 1] : "";
+      if (/\d/.test(prev) && /\d/.test(next)) return false;
+      return true;
+    }
+    return false;
+  }
+
+  function sentenceViaPunctuation(ctx, wordIdx, wordLen) {
+    if (wordIdx < 0) return collapseWs(ctx);
+    let start = 0;
+    for (let i = wordIdx - 1; i >= 0; i--) {
+      const ch = ctx[i];
+      if (ch === "\n") {
+        start = i + 1;
+        break;
+      }
+      if (isLikelySentenceEnd(ctx, i)) {
+        let j = i + 1;
+        while (j < ctx.length && /[\s"'\u00bb\u00ab)\]]/.test(ctx[j])) j++;
+        start = j;
+        break;
+      }
+    }
+    let end = ctx.length;
+    for (let i = wordIdx + wordLen; i < ctx.length; i++) {
+      const ch = ctx[i];
+      if (ch === "\n") {
+        end = i;
+        break;
+      }
+      if (isLikelySentenceEnd(ctx, i)) {
+        end = i + 1;
+        let j = end;
+        while (j < ctx.length && /["'\u00bb\u00ab)\]]/.test(ctx[j])) j++;
+        end = j;
+        break;
+      }
+    }
+    return collapseWs(ctx.slice(start, end));
+  }
+
+  function clampPassageAroundWord(passage, word) {
+    if (passage.length <= MAX_SENTENCE_CHARS) return passage;
+    const idx = findBestWordIndex(passage, word);
+    if (idx < 0) return passage.slice(0, MAX_SENTENCE_CHARS).trim();
+    const center = idx + Math.floor(word.trim().length / 2);
+    let lo = Math.max(0, center - Math.floor(MAX_SENTENCE_CHARS / 2));
+    let hi = Math.min(passage.length, lo + MAX_SENTENCE_CHARS);
+    if (hi - lo < MAX_SENTENCE_CHARS) {
+      lo = Math.max(0, hi - MAX_SENTENCE_CHARS);
+    }
+    while (lo > 0 && passage[lo] !== " ") lo--;
+    if (lo > 0) lo++;
+    while (hi < passage.length && passage[hi] !== " ") hi++;
+    return collapseWs(passage.slice(lo, hi));
+  }
+
+  /**
+   * Narrow a wide context clip to roughly one sentence containing [word].
+   */
+  function extractSingleSentencePassage(ctxRaw, word) {
+    const ctx = ctxRaw.replace(/\r\n/g, "\n").trim();
+    if (!ctx) return ctx;
+    const idx = findBestWordIndex(ctx, word);
+    let out = sentenceViaIntlSegmenter(ctx, idx);
+    if (!out) {
+      out = sentenceViaPunctuation(ctx, idx, word.trim().length);
+    }
+    out = clampPassageAroundWord(out, word);
+    return out || ctx;
+  }
+
   function ensureShadow() {
     let host = document.getElementById(HOST_ID);
     if (!host) {
@@ -504,14 +634,18 @@
     if (fs) {
       fs.addEventListener("click", (ev) => {
         ev.stopPropagation();
-        runSentenceTranslate(x, y, contextSnippet.trim());
+        runSentenceTranslate(x, y, contextSnippet.trim(), headerLabel.trim());
       });
     }
     root?.appendChild(panelEl);
     placePanel(x, y);
   }
 
-  function runSentenceTranslate(x, y, passage) {
+  function runSentenceTranslate(x, y, contextSnippet, headerLabel) {
+    const passage = extractSingleSentencePassage(
+      contextSnippet.trim(),
+      headerLabel.trim(),
+    );
     showLoading(x, y, "Sentence...");
     const cbId = "_neo_" + Date.now() + "_" + Math.floor(Math.random() * 1e9);
     window[cbId] = function (resp) {

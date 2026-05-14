@@ -29,8 +29,9 @@ object OpenAi {
         val system =
             if (sentenceMode) {
                 listOf(
-                    "You translate passages from web pages.",
-                    "The user highlighted a short passage around a tapped word. Translate the ENTIRE passage into the requested target language.",
+                    "You translate exactly one sentence from a web page.",
+                    "The user tapped a word; the client sends a short clip that should be a single sentence containing that word.",
+                    "Translate only that sentence into the requested target language. Do not merge or translate extra sentences if any slipped through.",
                     "Preserve meaning and natural tone; output fluent prose, not a word-by-word gloss.",
                     """Respond with JSON only: {"translation": string, "definition": null}.""",
                     """Always set "definition" to null.""",
@@ -63,7 +64,7 @@ object OpenAi {
                 val passage = (if (word.isNotBlank()) word else context).take(12000)
                 buildString {
                     appendLine("Target language for the translation: $targetLang")
-                    appendLine("Passage to translate:")
+                    appendLine("Single sentence to translate (contains the tapped word):")
                     append("\"\"\"")
                     append(passage)
                     append("\"\"\"")
