@@ -20,8 +20,10 @@ import androidx.appcompat.widget.PopupMenu
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.core.view.ViewCompat
 import com.google.android.material.textfield.TextInputLayout
 import dev.neobabylon.webview.databinding.ActivityMainBinding
 
@@ -42,12 +44,14 @@ class MainActivity : AppCompatActivity() {
             reloadWebPage()
         }
 
+        // WebView often reports canScrollVertically(-1) incorrectly on mobile Wikipedia; use scrollY.
         binding.swipeRefresh.setOnChildScrollUpCallback { _, child ->
-            child.canScrollVertically(-1)
+            (child as WebView).scrollY > 2
         }
         binding.swipeRefresh.setOnRefreshListener {
             reloadWebPage()
         }
+        binding.swipeRefresh.setDistanceToTriggerSync(120)
 
         binding.overflowButton.setOnClickListener { anchor ->
             PopupMenu(this, anchor).apply {
@@ -75,6 +79,7 @@ class MainActivity : AppCompatActivity() {
         settings.displayZoomControls = false
         settings.useWideViewPort = true
         settings.loadWithOverviewMode = true
+        ViewCompat.setNestedScrollingEnabled(binding.webView, true)
 
         binding.webView.webChromeClient =
             object : WebChromeClient() {
@@ -105,6 +110,7 @@ class MainActivity : AppCompatActivity() {
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
                     binding.swipeRefresh.isRefreshing = false
+                    view?.settings?.cacheMode = WebSettings.LOAD_DEFAULT
                     view ?: return
                     if (!url.isNullOrBlank() && !url.startsWith("about:")) {
                         binding.urlField.setText(url, false)
@@ -143,6 +149,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun reloadWebPage() {
         binding.swipeRefresh.isRefreshing = true
+        binding.webView.settings.cacheMode = WebSettings.LOAD_NO_CACHE
         binding.webView.reload()
     }
 

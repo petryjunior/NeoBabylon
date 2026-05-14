@@ -334,7 +334,12 @@
     if (wordStartInHolder < 0) {
       const ctxStart = Math.max(0, start - CONTEXT_RADIUS);
       const ctxEnd = Math.min(merged.length, end + CONTEXT_RADIUS);
-      return { word, context: merged.slice(ctxStart, ctxEnd) };
+      const clip = merged.slice(ctxStart, ctxEnd);
+      return {
+        word,
+        context: clip,
+        sentencePassage: extractSingleSentencePassage(clip, word),
+      };
     }
     const from = Math.max(0, wordStartInHolder - CONTEXT_RADIUS);
     const to = Math.min(
@@ -342,7 +347,17 @@
       wordStartInHolder + word.length + CONTEXT_RADIUS,
     );
     const context = full.slice(from, to).trim();
-    return { word, context };
+    const { text: sentSlice, idx: sentIdx } = sliceForSentenceExtraction(
+      full,
+      wordStartInHolder,
+    );
+    const sentencePassage = extractSentenceAtIndex(
+      sentSlice,
+      sentIdx,
+      word.length,
+      word,
+    );
+    return { word, context, sentencePassage };
   }
 
   const MAX_SENTENCE_CHARS = 520;
@@ -410,6 +425,19 @@
     return false;
   }
 
+  function consumeSpacesQuotes(ctx, j) {
+    while (j < ctx.length && /[\s"'\u00bb\u00ab)\]]/.test(ctx[j])) j++;
+    return j;
+  }
+
+  function consumeWikiRefBracket(ctx, j) {
+    if (j >= ctx.length || ctx[j] !== "[") return j;
+    j++;
+    while (j < ctx.length && ctx[j] !== "]") j++;
+    if (j < ctx.length && ctx[j] === "]") j++;
+    return j;
+  }
+
   function sentenceViaPunctuation(ctx, wordIdx, wordLen) {
     if (wordIdx < 0) return collapseWs(ctx);
     let start = 0;
@@ -421,7 +449,8 @@
       }
       if (isLikelySentenceEnd(ctx, i)) {
         let j = i + 1;
-        while (j < ctx.length && /[\s"'\u00bb\u00ab)\]]/.test(ctx[j])) j++;
+        j = consumeSpacesQuotes(ctx, j);
+        j = consumeWikiRefBracket(ctx, j);
         start = j;
         break;
       }
@@ -434,9 +463,9 @@
         break;
       }
       if (isLikelySentenceEnd(ctx, i)) {
-        end = i + 1;
-        let j = end;
-        while (j < ctx.length && /["'\u00bb\u00ab)\]]/.test(ctx[j])) j++;
+        let j = i + 1;
+        j = consumeSpacesQuotes(ctx, j);
+        j = consumeWikiRefBracket(ctx, j);
         end = j;
         break;
       }
@@ -473,6 +502,35 @@
     }
     out = clampPassageAroundWord(out, word);
     return out || ctx;
+  }
+
+  /** Limit work for Intl / scans on huge DOM blocks (e.g. section/article). */
+  function sliceForSentenceExtraction(full, wordIdx) {
+    const max = 4000;
+    if (full.length <= max) {
+      return { text: full, idx: wordIdx };
+    }
+    const half = Math.floor(max / 2);
+    let from = Math.max(0, wordIdx - half);
+    let to = Math.min(full.length, from + max);
+    if (to - from < max) {
+      from = Math.max(0, to - max);
+    }
+    return { text: full.slice(from, to), idx: wordIdx - from };
+  }
+
+  /**
+   * Sentence containing the word using its index in block text (full Wikipedia <p>, etc.).
+   */
+  function extractSentenceAtIndex(fullRaw, wordIdx, wordLen, word) {
+    const { text, idx } = sliceForSentenceExtraction(fullRaw, wordIdx);
+    const len = Math.min(Math.max(wordLen, 1), text.length - idx);
+    let out = sentenceViaIntlSegmenter(text, idx);
+    if (!out) {
+      out = sentenceViaPunctuation(text, idx, len);
+    }
+    out = clampPassageAroundWord(out, word);
+    return out || collapseWs(text.slice(idx, Math.min(text.length, idx + 400)));
   }
 
   function ensureShadow() {
@@ -602,8 +660,25 @@
 
   let lastWordPanel = null;
 
-  function showResult(x, y, headerLabel, result, contextSnippet) {
-    lastWordPanel = { x, y, headerLabel, result, context: contextSnippet };
+  function showResult(x, y, headerLabel, result, contextSnippet, sentencePassageOpt) {
+    const opt =
+      sentencePassageOpt != null ? String(sentencePassageOpt).trim() : "";
+    const sentencePassage = (
+      opt
+        ? opt
+        : extractSingleSentencePassage(
+            String(contextSnippet || "").trim(),
+            headerLabel.trim(),
+          )
+    ).trim();
+    lastWordPanel = {
+      x,
+      y,
+      headerLabel,
+      result,
+      context: contextSnippet,
+      sentencePassage,
+    };
     const root = ensureShadow();
     removePanel();
     panelEl = document.createElement("div");
@@ -617,8 +692,7 @@
         ? `<div class="nb-def">${escapeHtml(String(result.definition).trim())}</div>`
         : "";
     const canSentence =
-      contextSnippet &&
-      contextSnippet.trim().length > headerLabel.trim().length + 2;
+      sentencePassage && sentencePassage.length > headerLabel.trim().length + 2;
     const sentenceBtn = canSentence
       ? '<button type="button" class="nb-rowbtn nb-fullsent">Full sentence</button>'
       : "";
@@ -634,18 +708,18 @@
     if (fs) {
       fs.addEventListener("click", (ev) => {
         ev.stopPropagation();
-        runSentenceTranslate(x, y, contextSnippet.trim(), headerLabel.trim());
+        runSentenceTranslate(x, y, sentencePassage);
       });
     }
     root?.appendChild(panelEl);
     placePanel(x, y);
   }
 
-  function runSentenceTranslate(x, y, contextSnippet, headerLabel) {
-    const passage = extractSingleSentencePassage(
-      contextSnippet.trim(),
-      headerLabel.trim(),
-    );
+  function runSentenceTranslate(x, y, passage) {
+    const trimmed = String(passage || "").trim();
+    if (!trimmed) {
+      return;
+    }
     showLoading(x, y, "Sentence...");
     const cbId = "_neo_" + Date.now() + "_" + Math.floor(Math.random() * 1e9);
     window[cbId] = function (resp) {
@@ -661,8 +735,8 @@
     try {
       NeoAndroid.translateAsync(
         JSON.stringify({
-          word: passage,
-          context: passage,
+          word: trimmed,
+          context: trimmed,
           sentenceMode: true,
         }),
         cbId,
@@ -695,7 +769,7 @@
     if (bk && lp) {
       bk.addEventListener("click", (ev) => {
         ev.stopPropagation();
-        showResult(lp.x, lp.y, lp.headerLabel, lp.result, lp.context);
+        showResult(lp.x, lp.y, lp.headerLabel, lp.result, lp.context, lp.sentencePassage);
         armDismiss();
       });
     }
@@ -764,7 +838,7 @@
           armDismiss();
           return;
         }
-        showResult(x, y, extracted.word, resp.result, extracted.context);
+        showResult(x, y, extracted.word, resp.result, extracted.context, extracted.sentencePassage);
         requestAnimationFrame(() => placePanel(x, y));
         armDismiss();
       } catch (err) {
