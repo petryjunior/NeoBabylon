@@ -18,6 +18,8 @@ import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.PopupMenu
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.google.android.material.textfield.TextInputLayout
@@ -37,7 +39,14 @@ class MainActivity : AppCompatActivity() {
         prefs = getSharedPreferences(NeoBridge.PREFS_NAME, MODE_PRIVATE)
 
         binding.refreshButton.setOnClickListener {
-            binding.webView.reload()
+            reloadWebPage()
+        }
+
+        binding.swipeRefresh.setOnChildScrollUpCallback { _, child ->
+            child.canScrollVertically(-1)
+        }
+        binding.swipeRefresh.setOnRefreshListener {
+            reloadWebPage()
         }
 
         binding.overflowButton.setOnClickListener { anchor ->
@@ -82,8 +91,20 @@ class MainActivity : AppCompatActivity() {
         binding.webView.addJavascriptInterface(NeoBridge(this, binding.webView), "NeoAndroid")
         binding.webView.webViewClient =
             object : WebViewClient() {
+                override fun onReceivedError(
+                    view: WebView?,
+                    request: WebResourceRequest?,
+                    error: WebResourceError?,
+                ) {
+                    super.onReceivedError(view, request, error)
+                    if (request?.isForMainFrame == true) {
+                        binding.swipeRefresh.isRefreshing = false
+                    }
+                }
+
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
+                    binding.swipeRefresh.isRefreshing = false
                     view ?: return
                     if (!url.isNullOrBlank() && !url.startsWith("about:")) {
                         binding.urlField.setText(url, false)
@@ -118,6 +139,11 @@ class MainActivity : AppCompatActivity() {
         )
 
         loadFromField()
+    }
+
+    private fun reloadWebPage() {
+        binding.swipeRefresh.isRefreshing = true
+        binding.webView.reload()
     }
 
     private fun syncUrlEndIcon() {
