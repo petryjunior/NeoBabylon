@@ -7,36 +7,11 @@
     android:orientation="vertical"
     tools:context=".MainActivity">
 
-    <!-- Header: title always visible + explicit Settings (overflow menu is easy to miss on WebView apps) -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingHorizontal="12dp"
-        android:paddingTop="10dp"
-        android:paddingBottom="6dp">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/app_name"
-            android:textAppearance="?attr/textAppearanceTitleLarge" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/settingsButton"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:minHeight="48dp"
-            android:text="@string/settings" />
-    </LinearLayout>
-
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="12dp"
+        android:layout_marginTop="10dp"
         android:layout_marginBottom="8dp"
         app:cardElevation="2dp"
         app:strokeWidth="0dp">
@@ -48,14 +23,26 @@
             android:orientation="horizontal"
             android:padding="10dp">
 
+            <androidx.appcompat.widget.AppCompatImageButton
+                android:id="@+id/refreshButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/refresh_page"
+                android:padding="10dp"
+                android:scaleType="centerInside"
+                app:srcCompat="@drawable/ic_refresh_24"
+                app:tint="?attr/colorControlNormal" />
+
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/urlLayout"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
                 android:layout_weight="1"
                 android:hint="@string/hint_url"
-                app:endIconMode="clear_text">
+                app:endIconMode="custom">
 
                 <com.google.android.material.textfield.MaterialAutoCompleteTextView
                     android:id="@+id/urlField"
@@ -76,6 +63,17 @@
                 android:layout_marginStart="8dp"
                 android:minHeight="48dp"
                 android:text="@string/go" />
+
+            <androidx.appcompat.widget.AppCompatImageButton
+                android:id="@+id/overflowButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/open_menu"
+                android:padding="10dp"
+                android:scaleType="centerInside"
+                app:srcCompat="@drawable/ic_more_vert_24"
+                app:tint="?attr/colorControlNormal" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 

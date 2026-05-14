@@ -10,4 +10,7 @@
     <string name="api_key_hint">OpenAI API key</string>
     <string name="target_lang">Target language</string>
     <string name="include_definition">Show English definition under word translations</string>
+    <string name="refresh_page">Reload page</string>
+    <string name="open_menu">Menu</string>
+    <string name="clear_url">Clear address</string>
 </resources>

@@ -1,11 +1,14 @@
 package dev.neobabylon.webview
 
 import android.annotation.SuppressLint
-import android.content.SharedPreferences
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Base64
 import android.util.Log
+import android.view.Menu
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.ArrayAdapter
@@ -13,10 +16,12 @@ import android.widget.Filter
 import android.widget.Filterable
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.PopupMenu
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.google.android.material.textfield.MaterialAutoCompleteTextView
+import com.google.android.material.textfield.TextInputLayout
 import dev.neobabylon.webview.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
@@ -32,10 +37,26 @@ class MainActivity : AppCompatActivity() {
 
         prefs = getSharedPreferences(NeoBridge.PREFS_NAME, MODE_PRIVATE)
 
-        binding.settingsButton.setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
+        binding.refreshButton.setOnClickListener {
+            binding.webView.reload()
         }
 
+        binding.overflowButton.setOnClickListener { anchor ->
+            PopupMenu(this, anchor).apply {
+                menu.add(Menu.NONE, MENU_SETTINGS, Menu.NONE, getString(R.string.settings))
+                setOnMenuItemClickListener { item ->
+                    if (item.itemId == MENU_SETTINGS) {
+                        startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
+                        true
+                    } else {
+                        false
+                    }
+                }
+                show()
+            }
+        }
+
+        setupUrlFieldEndIcon()
         setupUrlAutocomplete()
 
         val settings = binding.webView.settings
@@ -100,14 +121,61 @@ class MainActivity : AppCompatActivity() {
         loadFromField()
     }
 
+    private fun setupUrlFieldEndIcon() {
+        val layout = binding.urlLayout
+        val field = binding.urlField
+        layout.endIconMode = TextInputLayout.END_ICON_CUSTOM
+        layout.setEndIconDrawable(R.drawable.ic_clear_24)
+        layout.setEndIconContentDescription(getString(R.string.clear_url))
+        fun syncEndIcon() {
+            layout.isEndIconVisible = field.hasFocus() || field.text?.isNotEmpty() == true
+        }
+        layout.setEndIconOnClickListener {
+            field.setText("")
+            field.requestFocus()
+            syncEndIcon()
+        }
+        field.setOnFocusChangeListener { _, _ -> syncEndIcon() }
+        field.addTextChangedListener(
+            object : TextWatcher {
+                override fun beforeTextChanged(
+                    s: CharSequence?,
+                    start: Int,
+                    count: Int,
+                    after: Int,
+                ) {
+                }
+
+                override fun onTextChanged(
+                    s: CharSequence?,
+                    start: Int,
+                    before: Int,
+                    count: Int,
+                ) {
+                }
+
+                override fun afterTextChanged(s: Editable?) {
+                    syncEndIcon()
+                }
+            },
+        )
+        syncEndIcon()
+    }
+
     private fun setupUrlAutocomplete() {
         val field = binding.urlField
         field.threshold = 0
-        field.setOnClickListener { field.showDropDown() }
+        field.setOnClickListener {
+            field.showDropDown()
+            binding.urlLayout.isEndIconVisible =
+                field.hasFocus() || field.text?.isNotEmpty() == true
+        }
         field.setOnFocusChangeListener { v, hasFocus ->
             if (hasFocus) {
                 (v as MaterialAutoCompleteTextView).showDropDown()
             }
+            binding.urlLayout.isEndIconVisible =
+                hasFocus || field.text?.isNotEmpty() == true
         }
         field.setOnItemClickListener { _, _, position, _ ->
             val u = field.adapter.getItem(position) as String
@@ -193,5 +261,9 @@ class MainActivity : AppCompatActivity() {
             }
 
         override fun getFilter(): Filter = filter
+    }
+
+    companion object {
+        private const val MENU_SETTINGS = 1
     }
 }
