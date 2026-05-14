@@ -411,6 +411,30 @@
     return null;
   }
 
+  function countTrailingDigitsBeforeDot(ctx, dotIdx) {
+    let n = 0;
+    let k = dotIdx - 1;
+    while (k >= 0 && /\d/.test(ctx[k])) {
+      n++;
+      k--;
+    }
+    return n;
+  }
+
+  /**
+   * Ordinals / dates like German "19. Jahrhunderts", "12. Juni", "3.Mai" — the dot is not a sentence end.
+   * Years like "2024." use 4+ digit runs and still end sentences.
+   */
+  function isDigitOrdinalOrDateDot(ctx, dotIdx) {
+    if (ctx[dotIdx] !== ".") return false;
+    const digitRun = countTrailingDigitsBeforeDot(ctx, dotIdx);
+    if (digitRun < 1 || digitRun > 3) return false;
+    let j = dotIdx + 1;
+    while (j < ctx.length && /\s/.test(ctx[j])) j++;
+    if (j >= ctx.length) return false;
+    return /\p{L}/u.test(ctx[j]);
+  }
+
   function isLikelySentenceEnd(ctx, i) {
     const ch = ctx[i];
     if (ch === "\n") return true;
@@ -420,6 +444,7 @@
       const prev = i > 0 ? ctx[i - 1] : "";
       const next = i + 1 < ctx.length ? ctx[i + 1] : "";
       if (/\d/.test(prev) && /\d/.test(next)) return false;
+      if (isDigitOrdinalOrDateDot(ctx, i)) return false;
       return true;
     }
     return false;
