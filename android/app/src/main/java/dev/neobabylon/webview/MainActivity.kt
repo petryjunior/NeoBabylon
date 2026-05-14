@@ -20,7 +20,6 @@ import androidx.appcompat.widget.PopupMenu
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import com.google.android.material.textfield.MaterialAutoCompleteTextView
 import com.google.android.material.textfield.TextInputLayout
 import dev.neobabylon.webview.databinding.ActivityMainBinding
 
@@ -121,21 +120,44 @@ class MainActivity : AppCompatActivity() {
         loadFromField()
     }
 
+    private fun syncUrlEndIcon() {
+        binding.urlLayout.isEndIconVisible =
+            binding.urlField.hasFocus() || binding.urlField.text?.isNotEmpty() == true
+    }
+
+    /**
+     * Full window width so long saved URLs are readable (not clipped to the TextInput width).
+     */
+    private fun adjustUrlDropDownWidth() {
+        val field = binding.urlField
+        val loc = IntArray(2)
+        field.getLocationOnScreen(loc)
+        val w =
+            window.decorView.width.takeIf { it > 0 }
+                ?: resources.displayMetrics.widthPixels
+        field.dropDownHorizontalOffset = -loc[0]
+        field.dropDownWidth = w
+    }
+
+    private fun showUrlDropdown() {
+        syncUrlEndIcon()
+        binding.urlField.post {
+            adjustUrlDropDownWidth()
+            binding.urlField.showDropDown()
+        }
+    }
+
     private fun setupUrlFieldEndIcon() {
         val layout = binding.urlLayout
         val field = binding.urlField
         layout.endIconMode = TextInputLayout.END_ICON_CUSTOM
         layout.setEndIconDrawable(R.drawable.ic_clear_24)
         layout.setEndIconContentDescription(getString(R.string.clear_url))
-        fun syncEndIcon() {
-            layout.isEndIconVisible = field.hasFocus() || field.text?.isNotEmpty() == true
-        }
         layout.setEndIconOnClickListener {
             field.setText("")
             field.requestFocus()
-            syncEndIcon()
+            syncUrlEndIcon()
         }
-        field.setOnFocusChangeListener { _, _ -> syncEndIcon() }
         field.addTextChangedListener(
             object : TextWatcher {
                 override fun beforeTextChanged(
@@ -155,27 +177,22 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 override fun afterTextChanged(s: Editable?) {
-                    syncEndIcon()
+                    syncUrlEndIcon()
                 }
             },
         )
-        syncEndIcon()
+        syncUrlEndIcon()
     }
 
     private fun setupUrlAutocomplete() {
         val field = binding.urlField
         field.threshold = 0
-        field.setOnClickListener {
-            field.showDropDown()
-            binding.urlLayout.isEndIconVisible =
-                field.hasFocus() || field.text?.isNotEmpty() == true
-        }
-        field.setOnFocusChangeListener { v, hasFocus ->
+        field.setOnClickListener { showUrlDropdown() }
+        field.setOnFocusChangeListener { _, hasFocus ->
+            syncUrlEndIcon()
             if (hasFocus) {
-                (v as MaterialAutoCompleteTextView).showDropDown()
+                showUrlDropdown()
             }
-            binding.urlLayout.isEndIconVisible =
-                hasFocus || field.text?.isNotEmpty() == true
         }
         field.setOnItemClickListener { _, _, position, _ ->
             val u = field.adapter.getItem(position) as String
