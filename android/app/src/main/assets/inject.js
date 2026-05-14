@@ -463,7 +463,8 @@
         break;
       }
       if (isLikelySentenceEnd(ctx, i)) {
-        let j = i + 1;
+        end = i + 1;
+        let j = end;
         j = consumeSpacesQuotes(ctx, j);
         j = consumeWikiRefBracket(ctx, j);
         end = j;
