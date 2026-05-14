@@ -41,8 +41,303 @@
   const isWordChar = (ch) => {
     if (!ch) return false;
     if (ch === "'" || ch === "’" || ch === "-" || ch === "_") return true;
-    return /\p{L}|\p{N}/u.test(ch);
+    if (
+      ch === "\u00AD" ||
+      ch === "\u200B" ||
+      ch === "\u200C" ||
+      ch === "\u200D" ||
+      ch === "\uFEFF" ||
+      ch === "\u2060"
+    ) {
+      return true;
+    }
+    return /\p{L}|\p{N}|\p{M}/u.test(ch);
   };
+
+  const BLOCK_TAG = new Set([
+    "ADDRESS",
+    "ARTICLE",
+    "ASIDE",
+    "BLOCKQUOTE",
+    "BODY",
+    "CAPTION",
+    "DD",
+    "DETAILS",
+    "DIV",
+    "DL",
+    "DT",
+    "FIELDSET",
+    "FIGCAPTION",
+    "FIGURE",
+    "FOOTER",
+    "FORM",
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H6",
+    "HEADER",
+    "HR",
+    "HTML",
+    "LI",
+    "MAIN",
+    "NAV",
+    "OL",
+    "P",
+    "PRE",
+    "SECTION",
+    "TABLE",
+    "TBODY",
+    "TD",
+    "TFOOT",
+    "TH",
+    "THEAD",
+    "TITLE",
+    "TR",
+    "UL",
+  ]);
+
+  /**
+   * @param {Element | null} el
+   */
+  function isBlockElement(el) {
+    return Boolean(el && el.nodeType === 1 && BLOCK_TAG.has(el.tagName));
+  }
+
+  /**
+   * @param {Node} el
+   * @returns {Text | null}
+   */
+  function lastTextInInlineSubtree(el) {
+    if (el.nodeType === 3) return /** @type {Text} */ (el);
+    if (el.nodeType !== 1 || isBlockElement(/** @type {Element} */ (el)))
+      return null;
+    for (let c = el.lastChild; c; c = c.previousSibling) {
+      const t = lastTextInInlineSubtree(c);
+      if (t) return t;
+    }
+    return null;
+  }
+
+  /**
+   * @param {Node} el
+   * @returns {Text | null}
+   */
+  function firstTextInInlineSubtree(el) {
+    if (el.nodeType === 3) return /** @type {Text} */ (el);
+    if (el.nodeType !== 1 || isBlockElement(/** @type {Element} */ (el)))
+      return null;
+    for (let c = el.firstChild; c; c = c.nextSibling) {
+      const t = firstTextInInlineSubtree(c);
+      if (t) return t;
+    }
+    return null;
+  }
+
+  /**
+   * @param {Text} node
+   * @returns {Text | null}
+   */
+  function prevInlineText(node) {
+    let p = node.previousSibling;
+    while (p) {
+      if (p.nodeType === 3) return /** @type {Text} */ (p);
+      if (p.nodeType === 1) {
+        if (p.tagName === "BR") return null;
+        if (p.tagName === "WBR") {
+          p = p.previousSibling;
+          continue;
+        }
+        if (!isBlockElement(/** @type {Element} */ (p))) {
+          const t = lastTextInInlineSubtree(p);
+          if (t) return t;
+        } else {
+          return null;
+        }
+      }
+      p = p.previousSibling;
+    }
+    let el = node.parentElement;
+    while (el && !isBlockElement(el)) {
+      let s = el.previousSibling;
+      while (s) {
+        if (s.nodeType === 3) return /** @type {Text} */ (s);
+        if (s.nodeType === 1) {
+          if (s.tagName === "BR") return null;
+          if (s.tagName === "WBR") {
+            s = s.previousSibling;
+            continue;
+          }
+          if (!isBlockElement(/** @type {Element} */ (s))) {
+            const t = lastTextInInlineSubtree(s);
+            if (t) return t;
+          } else {
+            return null;
+          }
+        }
+        s = s.previousSibling;
+      }
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  /**
+   * @param {Text} node
+   * @returns {Text | null}
+   */
+  function nextInlineText(node) {
+    let n = node.nextSibling;
+    while (n) {
+      if (n.nodeType === 3) return /** @type {Text} */ (n);
+      if (n.nodeType === 1) {
+        if (n.tagName === "BR") return null;
+        if (n.tagName === "WBR") {
+          n = n.nextSibling;
+          continue;
+        }
+        if (!isBlockElement(/** @type {Element} */ (n))) {
+          const t = firstTextInInlineSubtree(n);
+          if (t) return t;
+        } else {
+          return null;
+        }
+      }
+      n = n.nextSibling;
+    }
+    let el = node.parentElement;
+    while (el && !isBlockElement(el)) {
+      let s = el.nextSibling;
+      while (s) {
+        if (s.nodeType === 3) return /** @type {Text} */ (s);
+        if (s.nodeType === 1) {
+          if (s.tagName === "BR") return null;
+          if (s.tagName === "WBR") {
+            s = s.nextSibling;
+            continue;
+          }
+          if (!isBlockElement(/** @type {Element} */ (s))) {
+            const t = firstTextInInlineSubtree(s);
+            if (t) return t;
+          } else {
+            return null;
+          }
+        }
+        s = s.nextSibling;
+      }
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  /**
+   * @param {Text} aNode
+   * @param {Text} bNode
+   */
+  function textNodesGlue(aNode, bNode) {
+    const a = aNode.data;
+    const b = bNode.data;
+    if (!a.length || !b.length) return false;
+    const x = a[a.length - 1];
+    const y = b[0];
+    if (/\s/.test(x) || /\s/.test(y)) return false;
+    return isWordChar(x) && isWordChar(y);
+  }
+
+  /**
+   * @param {Text} textNode
+   * @returns {Text[]}
+   */
+  function expandTextNodeChain(textNode) {
+    const nodes = [textNode];
+    let cur = textNode;
+    for (let g = 0; g < 128; g++) {
+      const p = prevInlineText(cur);
+      if (!p || !textNodesGlue(p, cur)) break;
+      nodes.unshift(p);
+      cur = p;
+    }
+    cur = textNode;
+    for (let g = 0; g < 128; g++) {
+      const nxt = nextInlineText(cur);
+      if (!nxt || !textNodesGlue(cur, nxt)) break;
+      nodes.push(nxt);
+      cur = nxt;
+    }
+    return nodes;
+  }
+
+  /**
+   * @param {Text[]} nodes
+   * @param {number} mergedIndex
+   */
+  function mapMergedIndexToNode(nodes, mergedIndex) {
+    let i = 0;
+    for (const n of nodes) {
+      const len = n.data.length;
+      if (mergedIndex < i + len) {
+        return { node: n, offset: mergedIndex - i };
+      }
+      i += len;
+    }
+    const last = nodes[nodes.length - 1];
+    return { node: last, offset: last.data.length };
+  }
+
+  /**
+   * @param {string} text
+   * @param {number} offset
+   * @returns {{ start: number, end: number }}
+   */
+  function wordBoundsInTextFallback(text, offset) {
+    let i = Math.min(offset, text.length);
+    let start = i;
+    while (start > 0 && isWordChar(text[start - 1])) start--;
+    let end = i;
+    while (end < text.length && isWordChar(text[end])) end++;
+    return { start, end };
+  }
+
+  /**
+   * @param {string} text
+   * @param {number} offset
+   * @returns {{ start: number, end: number } | null}
+   */
+  function segmenterWordBounds(text, offset) {
+    if (typeof Intl.Segmenter !== "function" || !text.length) return null;
+    try {
+      const lang =
+        document.documentElement.getAttribute("lang")?.trim() ||
+        navigator.language ||
+        "en";
+      const seg = new Intl.Segmenter([lang, "de", "en"], { granularity: "word" });
+      for (const part of seg.segment(text)) {
+        if (part.isWordLike === false) continue;
+        const idx = part.index;
+        const endIdx = idx + part.segment.length;
+        if (offset >= idx && offset < endIdx) {
+          return { start: idx, end: endIdx };
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /**
+   * @param {string} text
+   * @param {number} offset
+   */
+  function wordBoundsInMerged(text, offset) {
+    const fb = wordBoundsInTextFallback(text, offset);
+    const sg = segmenterWordBounds(text, offset);
+    const contains = (b, o) => o >= b.start && o < b.end;
+    const okFb = contains(fb, offset);
+    if (!sg || !contains(sg, offset)) return fb;
+    if (!okFb) return sg;
+    if (fb.end - fb.start >= sg.end - sg.start) return fb;
+    return sg;
+  }
 
   /**
    * @param {number} x
@@ -68,21 +363,6 @@
       }
     }
     return null;
-  }
-
-  /**
-   * @param {Text} textNode
-   * @param {number} offset
-   * @returns {{ start: number, end: number }}
-   */
-  function wordBoundsInText(textNode, offset) {
-    const text = textNode.data;
-    let i = Math.min(offset, text.length);
-    let start = i;
-    while (start > 0 && isWordChar(text[start - 1])) start--;
-    let end = i;
-    while (end < text.length && isWordChar(text[end])) end++;
-    return { start, end };
   }
 
   /**
@@ -113,8 +393,15 @@
       return null;
     }
     const textNode = /** @type {Text} */ (startContainer);
-    const { start, end } = wordBoundsInText(textNode, startOffset);
-    const word = textNode.data.slice(start, end);
+    const chain = expandTextNodeChain(textNode);
+    const merged = chain.map((n) => n.data).join("");
+    let mergedOffset = startOffset;
+    for (const n of chain) {
+      if (n === textNode) break;
+      mergedOffset += n.data.length;
+    }
+    const { start, end } = wordBoundsInMerged(merged, mergedOffset);
+    const word = merged.slice(start, end);
     if (!word.trim()) {
       return null;
     }
@@ -124,11 +411,15 @@
     );
     const holder = block || textNode.parentElement || document.body;
     const full = holder.textContent || "";
-    const wordStartInHolder = textOffsetInRoot(holder, textNode, start);
+    const { node: startNode, offset: startInNode } = mapMergedIndexToNode(
+      chain,
+      start,
+    );
+    const wordStartInHolder = textOffsetInRoot(holder, startNode, startInNode);
     if (wordStartInHolder < 0) {
       const ctxStart = Math.max(0, start - CONTEXT_RADIUS);
-      const ctxEnd = Math.min(textNode.data.length, end + CONTEXT_RADIUS);
-      return { word, context: textNode.data.slice(ctxStart, ctxEnd) };
+      const ctxEnd = Math.min(merged.length, end + CONTEXT_RADIUS);
+      return { word, context: merged.slice(ctxStart, ctxEnd) };
     }
     const from = Math.max(0, wordStartInHolder - CONTEXT_RADIUS);
     const to = Math.min(full.length, wordStartInHolder + word.length + CONTEXT_RADIUS);
