@@ -42,7 +42,8 @@
                 android:layout_marginStart="4dp"
                 android:layout_weight="1"
                 android:hint="@string/hint_url"
-                app:endIconMode="custom">
+                app:endIconMode="custom"
+                app:endIconTint="?attr/colorOnSurface">
 
                 <com.google.android.material.textfield.MaterialAutoCompleteTextView
                     android:id="@+id/urlField"
