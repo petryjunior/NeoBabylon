@@ -9,8 +9,26 @@ import java.util.Locale
 
 object LookupMemory {
     private const val KEY = "lookup_memory_json"
+    private const val UPDATED_AT_KEY = "lookup_memory_updated_at"
     private const val RETENTION_MS = 7L * 24 * 60 * 60 * 1000
     private const val MAX_ENTRIES = 800
+
+    fun getUpdatedAt(prefs: SharedPreferences): Long = prefs.getLong(UPDATED_AT_KEY, 0L)
+
+    fun bumpUploadTimestamp(prefs: SharedPreferences): Long {
+        val ts = maxOf(getUpdatedAt(prefs), System.currentTimeMillis())
+        prefs.edit().putLong(UPDATED_AT_KEY, ts).apply()
+        return ts
+    }
+
+    private fun setUpdatedAt(prefs: SharedPreferences, ts: Long) {
+        prefs.edit().putLong(UPDATED_AT_KEY, ts).apply()
+    }
+
+    fun applyRemoteSnapshot(prefs: SharedPreferences, entries: List<Entry>, updatedAt: Long) {
+        save(prefs, prune(entries))
+        setUpdatedAt(prefs, updatedAt)
+    }
 
     data class Entry(
         val id: String,
@@ -110,6 +128,7 @@ object LookupMemory {
             list.removeAt(list.size - 1)
         }
         save(prefs, list)
+        setUpdatedAt(prefs, now)
         MemorySync.schedule(prefs)
     }
 
@@ -144,7 +163,8 @@ object LookupMemory {
     }
 
     fun clear(prefs: SharedPreferences) {
-        prefs.edit().remove(KEY).apply()
+        val now = System.currentTimeMillis()
+        prefs.edit().remove(KEY).putLong(UPDATED_AT_KEY, now).apply()
         MemorySync.schedule(prefs)
     }
 

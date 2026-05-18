@@ -3,8 +3,28 @@
  */
 
 const LOOKUP_MEMORY_KEY = "lookup_memory_json";
+const LOOKUP_MEMORY_UPDATED_AT_KEY = "lookup_memory_updated_at";
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_ENTRIES = 800;
+
+async function getLookupMemoryUpdatedAt() {
+  const data = await chrome.storage.local.get(LOOKUP_MEMORY_UPDATED_AT_KEY);
+  const ts = data[LOOKUP_MEMORY_UPDATED_AT_KEY];
+  return typeof ts === "number" && Number.isFinite(ts) ? ts : 0;
+}
+
+async function setLookupMemoryUpdatedAt(ts) {
+  await chrome.storage.local.set({ [LOOKUP_MEMORY_UPDATED_AT_KEY]: ts });
+}
+
+/** Replace local memory with a remote snapshot (used when remote updatedAt wins). */
+async function applyLookupMemorySnapshot(entries, updatedAt) {
+  const parsed = Array.isArray(entries)
+    ? parseEntriesFromJson(JSON.stringify(entries))
+    : [];
+  await saveRawEntries(pruneEntries(parsed));
+  await setLookupMemoryUpdatedAt(updatedAt);
+}
 
 function normalizeWordKey(word) {
   return word.trim().toLowerCase();
@@ -62,6 +82,7 @@ async function recordLookupMemory(params) {
     entries = entries.slice(0, MAX_ENTRIES);
   }
   await saveRawEntries(entries);
+  await setLookupMemoryUpdatedAt(now);
   if (typeof neoBabylonScheduleMemorySync === "function") {
     neoBabylonScheduleMemorySync();
   }
@@ -120,8 +141,12 @@ async function getLookupMemoryView() {
 }
 
 async function clearLookupMemory() {
+  const now = Date.now();
   await chrome.storage.local.remove(LOOKUP_MEMORY_KEY);
-  if (typeof neoBabylonScheduleMemorySync === "function") {
+  await setLookupMemoryUpdatedAt(now);
+  if (typeof neoBabylonSyncMemoryNow === "function") {
+    await neoBabylonSyncMemoryNow();
+  } else if (typeof neoBabylonScheduleMemorySync === "function") {
     neoBabylonScheduleMemorySync();
   }
 }

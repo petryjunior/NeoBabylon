@@ -45,19 +45,34 @@ object MemorySync {
 
         try {
             val assistant = findMemoryAssistant(apiKey)
+            val localUpdatedAt = LookupMemory.getUpdatedAt(prefs)
             if (assistant != null) {
                 val instructions = assistant.optString("instructions", "")
                 if (instructions.isNotBlank()) {
-                    LookupMemory.mergeRemoteJson(prefs, instructions)
+                    val remote = parseRemotePayload(instructions)
+                    when {
+                        remote.updatedAt > localUpdatedAt ->
+                            LookupMemory.applyRemoteSnapshot(
+                                prefs,
+                                remote.entries,
+                                remote.updatedAt,
+                            )
+                        remote.updatedAt < localUpdatedAt -> {
+                            /* Local clear or newer edits win. */
+                        }
+                        remote.entries.isNotEmpty() ->
+                            LookupMemory.mergeRemoteJson(prefs, instructions)
+                    }
                 }
             }
 
             val entriesJson = LookupMemory.exportEntriesJson(prefs)
             val entryCount = JSONArray(entriesJson).length()
+            val payloadUpdatedAt = LookupMemory.bumpUploadTimestamp(prefs)
             val payload =
                 JSONObject()
                     .put("entries", JSONArray(entriesJson))
-                    .put("updatedAt", System.currentTimeMillis())
+                    .put("updatedAt", payloadUpdatedAt)
                     .toString()
 
             if (assistant != null) {
@@ -76,6 +91,66 @@ object MemorySync {
             saveSyncStatus(prefs, ok = false, error = msg)
         }
     }
+
+    private data class RemotePayload(
+        val entries: List<LookupMemory.Entry>,
+        val updatedAt: Long,
+    )
+
+    private fun parseRemotePayload(instructions: String): RemotePayload {
+        val trimmed = instructions.trim()
+        if (trimmed.isEmpty()) return RemotePayload(emptyList(), 0L)
+        return try {
+            when {
+                trimmed.startsWith("[") -> {
+                    RemotePayload(
+                        parseEntriesArray(JSONArray(trimmed)),
+                        0L,
+                    )
+                }
+                else -> {
+                    val o = JSONObject(trimmed)
+                    val entries =
+                        parseEntriesArray(o.optJSONArray("entries") ?: JSONArray())
+                    val updatedAt =
+                        if (o.has("updatedAt") && !o.isNull("updatedAt")) {
+                            o.optLong("updatedAt", 0L)
+                        } else {
+                            0L
+                        }
+                    RemotePayload(entries, updatedAt)
+                }
+            }
+        } catch (_: Exception) {
+            RemotePayload(emptyList(), 0L)
+        }
+    }
+
+    private fun parseEntriesArray(arr: JSONArray): List<LookupMemory.Entry> =
+        buildList {
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val word = o.optString("word", "").trim()
+                val translation = o.optString("translation", "").trim()
+                val ts = o.optLong("ts", 0L)
+                if (word.isEmpty() || translation.isEmpty() || ts <= 0L) continue
+                val id = o.optString("id", "").trim().ifEmpty { "${ts}_$i" }
+                add(
+                    LookupMemory.Entry(
+                        id = id,
+                        word = word,
+                        translation = translation,
+                        definition =
+                            if (o.isNull("definition")) {
+                                null
+                            } else {
+                                o.optString("definition").trim().takeIf { it.isNotEmpty() }
+                            },
+                        ts = ts,
+                    ),
+                )
+            }
+        }
 
     private fun normalizeApiKey(key: String): String = key.replace("\uFEFF", "").trim()
 

@@ -61,15 +61,27 @@ async function findMemoryAssistant(apiKey) {
 }
 
 function parseInstructionsPayload(text) {
-  if (!text || !String(text).trim()) return [];
+  if (!text || !String(text).trim()) {
+    return { entries: [], updatedAt: 0 };
+  }
   try {
     const parsed = JSON.parse(String(text).trim());
-    if (Array.isArray(parsed)) return parsed;
-    if (Array.isArray(parsed?.entries)) return parsed.entries;
+    if (Array.isArray(parsed)) {
+      return { entries: parsed, updatedAt: 0 };
+    }
+    if (parsed && typeof parsed === "object") {
+      return {
+        entries: Array.isArray(parsed.entries) ? parsed.entries : [],
+        updatedAt:
+          typeof parsed.updatedAt === "number" && Number.isFinite(parsed.updatedAt)
+            ? parsed.updatedAt
+            : 0,
+      };
+    }
   } catch {
     /* legacy or empty */
   }
-  return [];
+  return { entries: [], updatedAt: 0 };
 }
 
 async function createMemoryAssistant(apiKey, payloadJson) {
@@ -130,15 +142,26 @@ async function neoBabylonSyncMemoryNow() {
 
     try {
       let assistant = await findMemoryAssistant(apiKey);
+      const localUpdatedAt = await getLookupMemoryUpdatedAt();
+
       if (assistant?.instructions) {
-        const remoteEntries = parseInstructionsPayload(assistant.instructions);
-        if (remoteEntries.length) {
-          await mergeRemoteLookupEntries(remoteEntries);
+        const remote = parseInstructionsPayload(assistant.instructions);
+        if (remote.updatedAt > localUpdatedAt) {
+          await applyLookupMemorySnapshot(remote.entries, remote.updatedAt);
+        } else if (remote.updatedAt < localUpdatedAt) {
+          /* Local clear or newer edits win; do not merge stale remote. */
+        } else if (remote.entries.length) {
+          await mergeRemoteLookupEntries(remote.entries);
         }
       }
 
       const entries = pruneEntries(await loadRawEntries());
-      const payload = JSON.stringify({ entries, updatedAt: Date.now() });
+      const payloadUpdatedAt = Math.max(
+        await getLookupMemoryUpdatedAt(),
+        Date.now(),
+      );
+      await setLookupMemoryUpdatedAt(payloadUpdatedAt);
+      const payload = JSON.stringify({ entries, updatedAt: payloadUpdatedAt });
 
       if (assistant?.id) {
         await updateMemoryAssistant(apiKey, assistant.id, payload);
