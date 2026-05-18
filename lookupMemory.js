@@ -62,6 +62,33 @@ async function recordLookupMemory(params) {
     entries = entries.slice(0, MAX_ENTRIES);
   }
   await saveRawEntries(entries);
+  if (typeof neoBabylonScheduleMemorySync === "function") {
+    neoBabylonScheduleMemorySync();
+  }
+}
+
+async function mergeRemoteLookupEntries(remoteEntries) {
+  const imported = parseEntriesFromJson(JSON.stringify(remoteEntries));
+  if (!imported.length) return 0;
+
+  const existing = pruneEntries(await loadRawEntries());
+  const byId = new Map();
+  for (const e of existing) {
+    if (e.id) byId.set(e.id, e);
+  }
+
+  let added = 0;
+  for (const raw of imported) {
+    const id =
+      raw.id || `${raw.ts}_${Math.random().toString(36).slice(2, 9)}`;
+    if (byId.has(id)) continue;
+    byId.set(id, { ...raw, id, scope: "word" });
+    added++;
+  }
+
+  const merged = [...byId.values()].sort((a, b) => b.ts - a.ts);
+  await saveRawEntries(pruneEntries(merged));
+  return added;
 }
 
 async function getLookupMemoryView() {
@@ -94,4 +121,35 @@ async function getLookupMemoryView() {
 
 async function clearLookupMemory() {
   await chrome.storage.local.remove(LOOKUP_MEMORY_KEY);
+  if (typeof neoBabylonScheduleMemorySync === "function") {
+    neoBabylonScheduleMemorySync();
+  }
 }
+
+function parseEntriesFromJson(json) {
+  let parsed;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return [];
+  }
+  const arr = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray(parsed?.entries)
+      ? parsed.entries
+      : [];
+  return arr
+    .map((raw) => ({
+      id: String(raw?.id || "").trim(),
+      word: String(raw?.word || "").trim(),
+      translation: String(raw?.translation || "").trim(),
+      definition:
+        raw?.definition == null || raw?.definition === undefined
+          ? null
+          : String(raw.definition).trim() || null,
+      ts: typeof raw?.ts === "number" ? raw.ts : 0,
+      scope: raw?.scope === "word" ? "word" : "word",
+    }))
+    .filter((e) => e.word && e.translation && e.ts > 0);
+}
+

@@ -2,7 +2,7 @@
 
 Chrome extension (Manifest V3): **Alt+click** a word for a contextual translation, or **right-click selected text** and choose **Translate selection with NeoBabylon** (OpenAI). Word mode asks the model for a **short definition in English** every time (contextual gloss, with extra emphasis on **phrasal verbs** when relevant), while the **translation** uses your chosen target language. In **Options**, you can turn off **Show definition** to hide that line in the popup (the API still returns a gloss so the cache stays consistent).
 
-**Word memory (last 7 days):** each Alt+click word lookup is saved locally with the translation and definition you saw. Open it from **extension icon click**, **right-click the page → NeoBabylon: Word memory**, or the link at the top of **Options**. Repeated words appear in a **Looked up again** section with every result shown for that word.
+**Word memory (last 7 days):** each Alt+click word lookup is saved with the translation and definition you saw. Open it from **extension icon click**, **right-click the page → NeoBabylon: Word memory**, or the link at the top of **Options**. Repeated words appear in a **Looked up again** section. History **syncs automatically** between Chrome and the Android app when both use the **same OpenAI API key** (stored in a private **NeoBabylon Word Memory** assistant on your OpenAI account—no extra setup).
 
 For **Android (solo)**, see the WebView app in [`android/README.md`](android/README.md): use the **API key & language** button, then the address bar; **long-press** a word to translate similarly to desktop.
 

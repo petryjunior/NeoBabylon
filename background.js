@@ -1,6 +1,6 @@
 /** @typedef {{ translation: string, definition?: string | null }} TranslateResult */
 
-importScripts("lookupMemory.js");
+importScripts("lookupMemory.js", "memorySync.js");
 
 const CACHE_MAX = 100;
 /** @type {Map<string, TranslateResult>} */
@@ -190,6 +190,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     })();
     return true;
   }
+  if (message?.type === "NEO_BABYLON_MEMORY_SYNC") {
+    (async () => {
+      await neoBabylonSyncMemoryNow();
+      sendResponse({ ok: true });
+    })();
+    return true;
+  }
   if (message?.type !== "NEO_BABYLON_TRANSLATE") {
     return;
   }
@@ -222,6 +229,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           definition: cached.definition,
           scope: "word",
         });
+        await neoBabylonSyncMemoryNow();
       }
       sendResponse({ ok: true, result: cached });
       return;
@@ -276,6 +284,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
           definition: result.definition,
           scope: "word",
         });
+        await neoBabylonSyncMemoryNow();
       }
       sendResponse({ ok: true, result });
     } catch (e) {
@@ -313,8 +322,24 @@ function registerContextMenus() {
 
 chrome.runtime.onInstalled.addListener(() => {
   registerContextMenus();
+  neoBabylonSyncMemoryNow().catch(() => {});
 });
 registerContextMenus();
+
+chrome.runtime.onStartup.addListener(() => {
+  neoBabylonSyncMemoryNow().catch(() => {});
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (
+    alarm.name === "neoBabylonMemorySync" ||
+    alarm.name === "neoBabylonMemorySyncDebounce"
+  ) {
+    neoBabylonSyncMemoryNow().catch(() => {});
+  }
+});
+
+chrome.alarms.create("neoBabylonMemorySync", { periodInMinutes: 5 });
 
 chrome.action.onClicked.addListener(() => {
   openMemoryPage();

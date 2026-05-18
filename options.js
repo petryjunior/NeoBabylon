@@ -66,7 +66,6 @@ document.getElementById("form")?.addEventListener("submit", async (e) => {
     document.getElementById("includeDefinition")?.checked,
   );
   const requireAlt = Boolean(document.getElementById("requireAlt")?.checked);
-
   if (!proxyUrl && !apiKey) {
     setStatus("Enter an API key or a proxy URL.", "err");
     return;
@@ -79,7 +78,13 @@ document.getElementById("form")?.addEventListener("submit", async (e) => {
     includeDefinition,
     requireAlt,
   });
-  setStatus("Saved.", "ok");
+  chrome.runtime.sendMessage({ type: "NEO_BABYLON_MEMORY_SYNC" }, () => {});
+  setStatus(
+    apiKey
+      ? "Saved. Word memory syncs with the Android app when you use the same API key there."
+      : "Saved.",
+    "ok",
+  );
 });
 
 load().catch((err) => {

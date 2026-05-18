@@ -9,4 +9,5 @@ android/local.properties
 android/.idea/
 android/*.iml
 android/captures/
-
+android/hs_err_pid*.log
+android/replay_pid*.log

@@ -21,6 +21,7 @@ class WordMemoryActivity : AppCompatActivity() {
     private lateinit var prefs: android.content.SharedPreferences
     private lateinit var list: RecyclerView
     private lateinit var empty: TextView
+    private lateinit var syncStatus: TextView
     private val adapter = MemoryAdapter()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,10 +37,17 @@ class WordMemoryActivity : AppCompatActivity() {
 
         list = findViewById(R.id.memoryList)
         empty = findViewById(R.id.memoryEmpty)
+        syncStatus = findViewById(R.id.memorySyncStatus)
         list.layoutManager = LinearLayoutManager(this)
         list.adapter = adapter
 
         refresh()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        MemorySync.schedule(prefs)
+        list.postDelayed({ refresh() }, 2000)
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -69,6 +77,26 @@ class WordMemoryActivity : AppCompatActivity() {
         val hasData = view.timeline.isNotEmpty()
         empty.visibility = if (hasData) View.GONE else View.VISIBLE
         list.visibility = if (hasData) View.VISIBLE else View.GONE
+        updateSyncStatusLine()
+    }
+
+    private fun updateSyncStatusLine() {
+        val raw = prefs.getString("memory_sync_status_json", null) ?: return
+        try {
+            val o = org.json.JSONObject(raw)
+            val err = if (o.isNull("error")) null else o.optString("error")
+            syncStatus.visibility = View.VISIBLE
+            syncStatus.text =
+                if (o.optBoolean("ok", false)) {
+                    getString(R.string.word_memory_sync_ok)
+                } else if (!err.isNullOrBlank()) {
+                    getString(R.string.word_memory_sync_error, err)
+                } else {
+                    getString(R.string.word_memory_sync_pending)
+                }
+        } catch (_: Exception) {
+            syncStatus.visibility = View.GONE
+        }
     }
 
     private sealed class Row {
@@ -79,19 +107,76 @@ class WordMemoryActivity : AppCompatActivity() {
         data class Timeline(val entry: LookupMemory.Entry) : Row()
     }
 
-    private class MemoryAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
+    private class SectionHolder(
+        val title: TextView,
+    ) : RecyclerView.ViewHolder(title)
+
+    private class MemoryCardHolder(
+        private val binding: ItemMemoryCardBinding,
+    ) : RecyclerView.ViewHolder(binding.root) {
+        fun bindRepeated(group: LookupMemory.RepeatedGroup) {
+            binding.memoryWord.text = group.word
+            binding.memoryMeta.visibility = View.VISIBLE
+            binding.memoryMeta.text =
+                binding.root.context.getString(
+                    R.string.word_memory_lookup_count,
+                    group.count,
+                )
+            binding.memoryEntriesContainer.visibility = View.VISIBLE
+            fillEntries(binding.memoryEntriesContainer, group.entries, showDividers = true)
+        }
+
+        fun bindTimeline(entry: LookupMemory.Entry) {
+            binding.memoryWord.text = entry.word
+            binding.memoryMeta.visibility = View.VISIBLE
+            binding.memoryMeta.text = LookupMemory.formatWhen(entry.ts)
+            binding.memoryEntriesContainer.visibility = View.VISIBLE
+            fillEntries(binding.memoryEntriesContainer, listOf(entry), showDividers = false)
+        }
+
+        private fun fillEntries(
+            container: LinearLayout,
+            entries: List<LookupMemory.Entry>,
+            showDividers: Boolean,
+        ) {
+            container.removeAllViews()
+            val inf = LayoutInflater.from(container.context)
+            entries.forEachIndexed { index, entry ->
+                val eb = ItemMemoryEntryBinding.inflate(inf, container, true)
+                eb.memoryEntryDivider.visibility =
+                    if (showDividers && index > 0) View.VISIBLE else View.GONE
+                if (!showDividers) {
+                    eb.memoryEntryWhen.visibility = View.GONE
+                } else {
+                    eb.memoryEntryWhen.visibility = View.VISIBLE
+                    eb.memoryEntryWhen.text = LookupMemory.formatWhen(entry.ts)
+                }
+                eb.memoryEntryTranslation.text = entry.translation
+                val def = entry.definition
+                if (!def.isNullOrBlank()) {
+                    eb.memoryEntryDefinition.visibility = View.VISIBLE
+                    eb.memoryEntryDefinition.text = def
+                } else {
+                    eb.memoryEntryDefinition.visibility = View.GONE
+                }
+            }
+        }
+    }
+
+    private inner class MemoryAdapter : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
         private var rows: List<Row> = emptyList()
 
         fun submit(view: LookupMemory.ViewModel) {
             val out = mutableListOf<Row>()
+            val ctx = this@WordMemoryActivity
             if (view.repeated.isNotEmpty()) {
-                out.add(Row.Section("Looked up again"))
+                out.add(Row.Section(ctx.getString(R.string.word_memory_section_repeated)))
                 for (g in view.repeated) {
                     out.add(Row.Repeated(g))
                 }
             }
             if (view.timeline.isNotEmpty()) {
-                out.add(Row.Section("All lookups (newest first)"))
+                out.add(Row.Section(ctx.getString(R.string.word_memory_section_timeline)))
                 for (e in view.timeline) {
                     out.add(Row.Timeline(e))
                 }
@@ -118,10 +203,10 @@ class WordMemoryActivity : AppCompatActivity() {
                     SectionHolder(v as TextView)
                 }
                 1 -> {
-                    CardHolder(ItemMemoryCardBinding.inflate(inf, parent, false))
+                    MemoryCardHolder(ItemMemoryCardBinding.inflate(inf, parent, false))
                 }
                 else -> {
-                    CardHolder(ItemMemoryCardBinding.inflate(inf, parent, false))
+                    MemoryCardHolder(ItemMemoryCardBinding.inflate(inf, parent, false))
                 }
             }
         }
@@ -129,66 +214,11 @@ class WordMemoryActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
             when (val row = rows[position]) {
                 is Row.Section -> (holder as SectionHolder).title.text = row.title
-                is Row.Repeated -> (holder as CardHolder).bindRepeated(row.group)
-                is Row.Timeline -> (holder as CardHolder).bindTimeline(row.entry)
+                is Row.Repeated -> (holder as MemoryCardHolder).bindRepeated(row.group)
+                is Row.Timeline -> (holder as MemoryCardHolder).bindTimeline(row.entry)
             }
         }
 
         override fun getItemCount(): Int = rows.size
-
-        private class SectionHolder(val title: TextView) : RecyclerView.ViewHolder(title)
-
-        private class CardHolder(
-            private val binding: ItemMemoryCardBinding,
-        ) : RecyclerView.ViewHolder(binding.root) {
-            fun bindRepeated(group: LookupMemory.RepeatedGroup) {
-                binding.memoryWord.text = group.word
-                binding.memoryMeta.visibility = View.VISIBLE
-                binding.memoryMeta.text =
-                    binding.root.context.getString(
-                        R.string.word_memory_lookup_count,
-                        group.count,
-                    )
-                binding.memoryEntriesContainer.visibility = View.VISIBLE
-                fillEntries(binding.memoryEntriesContainer, group.entries, showDividers = true)
-            }
-
-            fun bindTimeline(entry: LookupMemory.Entry) {
-                binding.memoryWord.text = entry.word
-                binding.memoryMeta.visibility = View.VISIBLE
-                binding.memoryMeta.text = LookupMemory.formatWhen(entry.ts)
-                binding.memoryEntriesContainer.visibility = View.VISIBLE
-                fillEntries(binding.memoryEntriesContainer, listOf(entry), showDividers = false)
-            }
-
-            private fun fillEntries(
-                container: LinearLayout,
-                entries: List<LookupMemory.Entry>,
-                showDividers: Boolean,
-            ) {
-                container.removeAllViews()
-                val ctx = container.context
-                val inf = LayoutInflater.from(ctx)
-                entries.forEachIndexed { index, entry ->
-                    val eb = ItemMemoryEntryBinding.inflate(inf, container, true)
-                    eb.memoryEntryDivider.visibility =
-                        if (showDividers && index > 0) View.VISIBLE else View.GONE
-                    if (!showDividers) {
-                        eb.memoryEntryWhen.visibility = View.GONE
-                    } else {
-                        eb.memoryEntryWhen.visibility = View.VISIBLE
-                        eb.memoryEntryWhen.text = LookupMemory.formatWhen(entry.ts)
-                    }
-                    eb.memoryEntryTranslation.text = entry.translation
-                    val def = entry.definition
-                    if (!def.isNullOrBlank()) {
-                        eb.memoryEntryDefinition.visibility = View.VISIBLE
-                        eb.memoryEntryDefinition.text = def
-                    } else {
-                        eb.memoryEntryDefinition.visibility = View.GONE
-                    }
-                }
-            }
-        }
     }
 }

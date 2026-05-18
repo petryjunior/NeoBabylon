@@ -319,6 +319,13 @@ class MainActivity : AppCompatActivity() {
         override fun getFilter(): Filter = filter
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (::prefs.isInitialized) {
+            MemorySync.schedule(prefs)
+        }
+    }
+
     companion object {
         private const val MENU_MEMORY = 2
         private const val MENU_SETTINGS = 1

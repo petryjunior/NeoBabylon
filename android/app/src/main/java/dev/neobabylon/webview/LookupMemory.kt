@@ -110,6 +110,7 @@ object LookupMemory {
             list.removeAt(list.size - 1)
         }
         save(prefs, list)
+        MemorySync.schedule(prefs)
     }
 
     fun buildView(prefs: SharedPreferences): ViewModel {
@@ -144,7 +145,99 @@ object LookupMemory {
 
     fun clear(prefs: SharedPreferences) {
         prefs.edit().remove(KEY).apply()
+        MemorySync.schedule(prefs)
     }
+
+    fun exportEntriesJson(prefs: SharedPreferences): String {
+        val entries = prune(load(prefs))
+        val arr = JSONArray()
+        for (e in entries) {
+            arr.put(entryToJson(e))
+        }
+        return arr.toString()
+    }
+
+    private fun entryToJson(e: Entry): JSONObject =
+        JSONObject()
+            .put("id", e.id)
+            .put("word", e.word)
+            .put("translation", e.translation)
+            .put("definition", e.definition ?: JSONObject.NULL)
+            .put("ts", e.ts)
+            .put("scope", "word")
+
+    fun mergeRemoteJson(prefs: SharedPreferences, json: String): Int {
+        val root = json.trim()
+        val imported =
+            when {
+                root.startsWith("{") -> {
+                    val o = JSONObject(root)
+                    parseEntriesArray(o.optJSONArray("entries") ?: JSONArray())
+                }
+                else -> parseEntriesFromJson(root)
+            }
+        if (imported.isEmpty()) return 0
+
+        val existing = prune(load(prefs))
+        val byId = linkedMapOf<String, Entry>()
+        for (e in existing) {
+            if (e.id.isNotEmpty()) byId[e.id] = e
+        }
+
+        var added = 0
+        for (e in imported) {
+            if (e.id.isNotEmpty() && byId.containsKey(e.id)) continue
+            byId[e.id] = e
+            added++
+        }
+
+        save(prefs, prune(byId.values.sortedByDescending { it.ts }))
+        return added
+    }
+
+    private fun parseEntriesFromJson(json: String): List<Entry> {
+        val trimmed = json.trim()
+        if (trimmed.isEmpty()) return emptyList()
+        return try {
+            val arr =
+                when {
+                    trimmed.startsWith("[") -> JSONArray(trimmed)
+                    else -> {
+                        val root = JSONObject(trimmed)
+                        root.optJSONArray("entries") ?: JSONArray()
+                    }
+                }
+            parseEntriesArray(arr)
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun parseEntriesArray(arr: JSONArray): List<Entry> =
+        buildList {
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val word = o.optString("word", "").trim()
+                val translation = o.optString("translation", "").trim()
+                val ts = o.optLong("ts", 0L)
+                if (word.isEmpty() || translation.isEmpty() || ts <= 0L) continue
+                val id = o.optString("id", "").trim().ifEmpty { "${ts}_$i" }
+                add(
+                    Entry(
+                        id = id,
+                        word = word,
+                        translation = translation,
+                        definition =
+                            if (o.isNull("definition")) {
+                                null
+                            } else {
+                                o.optString("definition").trim().takeIf { it.isNotEmpty() }
+                            },
+                        ts = ts,
+                    ),
+                )
+            }
+        }
 
     fun formatWhen(ts: Long): String {
         val fmt = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, Locale.getDefault())

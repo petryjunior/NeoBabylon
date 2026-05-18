@@ -76,20 +76,48 @@ function load() {
   const content = document.getElementById("content");
   const empty = document.getElementById("empty");
 
-  chrome.runtime.sendMessage({ type: "NEO_BABYLON_MEMORY_GET" }, (resp) => {
-    loading.hidden = true;
-    if (chrome.runtime.lastError || !resp?.ok) {
-      empty.hidden = false;
-      empty.textContent = "Could not load memory.";
-      return;
+  chrome.storage.local.get(["memorySyncStatus"], (stored) => {
+    const st = stored.memorySyncStatus;
+    const el = document.getElementById("syncStatus");
+    if (el && st) {
+      if (st.ok) {
+        el.textContent = "Cloud sync OK.";
+        el.style.color = "#15803d";
+      } else if (st.error) {
+        el.textContent = "Cloud sync issue: " + st.error;
+        el.style.color = "#b91c1c";
+      }
     }
-    const view = resp.view;
-    if (!view.timeline?.length) {
-      empty.hidden = false;
-      return;
-    }
-    content.innerHTML = renderView(view);
-    content.hidden = false;
+  });
+
+  chrome.runtime.sendMessage({ type: "NEO_BABYLON_MEMORY_SYNC" }, () => {
+    chrome.runtime.sendMessage({ type: "NEO_BABYLON_MEMORY_GET" }, (resp) => {
+      loading.hidden = true;
+      if (chrome.runtime.lastError || !resp?.ok) {
+        empty.hidden = false;
+        empty.textContent = "Could not load memory.";
+        return;
+      }
+      const view = resp.view;
+      if (!view.timeline?.length) {
+        empty.hidden = false;
+        return;
+      }
+      content.innerHTML = renderView(view);
+      content.hidden = false;
+      chrome.storage.local.get(["memorySyncStatus"], (stored) => {
+        const st = stored.memorySyncStatus;
+        const el = document.getElementById("syncStatus");
+        if (!el || !st) return;
+        if (st.ok) {
+          el.textContent = "Cloud sync OK.";
+          el.style.color = "#15803d";
+        } else if (st.error) {
+          el.textContent = "Cloud sync issue: " + st.error;
+          el.style.color = "#b91c1c";
+        }
+      });
+    });
   });
 }
 

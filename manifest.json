@@ -3,7 +3,7 @@
   "name": "NeoBabylon",
   "version": "0.1.0",
   "description": "Alt-click a word or right-click a selection to translate (OpenAI).",
-  "permissions": ["storage", "contextMenus"],
+  "permissions": ["storage", "contextMenus", "alarms"],
   "host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "service_worker": "background.js"

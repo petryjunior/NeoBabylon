@@ -34,6 +34,7 @@ class SettingsActivity : AppCompatActivity() {
                 )
                 .putBoolean("includeDefinition", includeDefinitionSwitch.isChecked)
                 .apply()
+            MemorySync.schedule(prefs)
             finish()
         }
     }
