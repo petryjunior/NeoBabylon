@@ -1,5 +1,7 @@
 /** @typedef {{ translation: string, definition?: string | null }} TranslateResult */
 
+importScripts("lookupMemory.js");
+
 const CACHE_MAX = 100;
 /** @type {Map<string, TranslateResult>} */
 const cache = new Map();
@@ -175,6 +177,19 @@ async function callProxy(proxyUrl, payload) {
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "NEO_BABYLON_MEMORY_GET") {
+    (async () => {
+      sendResponse({ ok: true, view: await getLookupMemoryView() });
+    })();
+    return true;
+  }
+  if (message?.type === "NEO_BABYLON_MEMORY_CLEAR") {
+    (async () => {
+      await clearLookupMemory();
+      sendResponse({ ok: true });
+    })();
+    return true;
+  }
   if (message?.type !== "NEO_BABYLON_TRANSLATE") {
     return;
   }
@@ -199,7 +214,16 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       effectiveScope,
     );
     if (cache.has(key)) {
-      sendResponse({ ok: true, result: cache.get(key) });
+      const cached = cache.get(key);
+      if (effectiveScope === "word" && cached) {
+        await recordLookupMemory({
+          word,
+          translation: cached.translation,
+          definition: cached.definition,
+          scope: "word",
+        });
+      }
+      sendResponse({ ok: true, result: cached });
       return;
     }
 
@@ -245,6 +269,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         }
       }
       cacheSet(key, result);
+      if (effectiveScope === "word") {
+        await recordLookupMemory({
+          word,
+          translation: result.translation,
+          definition: result.definition,
+          scope: "word",
+        });
+      }
       sendResponse({ ok: true, result });
     } catch (e) {
       sendResponse({
@@ -258,6 +290,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 const SELECTION_MENU_ID = "neobabylon-translate-selection";
+const MEMORY_MENU_ID = "neobabylon-word-memory";
+
+function openMemoryPage() {
+  chrome.tabs.create({ url: chrome.runtime.getURL("memory.html") });
+}
 
 function registerContextMenus() {
   chrome.contextMenus.removeAll(() => {
@@ -265,6 +302,11 @@ function registerContextMenus() {
       id: SELECTION_MENU_ID,
       title: "Translate selection with NeoBabylon",
       contexts: ["selection"],
+    });
+    chrome.contextMenus.create({
+      id: MEMORY_MENU_ID,
+      title: "NeoBabylon: Word memory (last 7 days)",
+      contexts: ["page"],
     });
   });
 }
@@ -274,7 +316,15 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 registerContextMenus();
 
+chrome.action.onClicked.addListener(() => {
+  openMemoryPage();
+});
+
 chrome.contextMenus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === MEMORY_MENU_ID) {
+    openMemoryPage();
+    return;
+  }
   if (info.menuItemId !== SELECTION_MENU_ID) {
     return;
   }

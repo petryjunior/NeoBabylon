@@ -13,4 +13,12 @@
     <string name="refresh_page">Reload page</string>
     <string name="open_menu">Menu</string>
     <string name="clear_url">Clear address</string>
-</resources>
+    <string name="word_memory">Word memory (7 days)</string>
+    <string name="word_memory_title">Word memory</string>
+    <string name="word_memory_subtitle">Long-press word lookups from the last 7 days on this device.</string>
+    <string name="word_memory_empty">No word lookups yet. Long-press a word on a page to start.</string>
+    <string name="word_memory_lookup_count">Looked up %1$d times</string>
+    <string name="word_memory_clear">Clear history</string>
+    <string name="word_memory_clear_title">Clear word memory?</string>
+    <string name="word_memory_clear_message">Remove all saved lookups from the last 7 days.</string>
+    <string name="word_memory_clear_confirm">Clear</string>

@@ -70,6 +70,18 @@
       button:hover {
         background: #1d4ed8;
       }
+      a.btn-link {
+        display: inline-block;
+        padding: 0.45rem 0.85rem;
+        border-radius: 8px;
+        background: #2563eb;
+        color: #fff;
+        text-decoration: none;
+        font-weight: 600;
+      }
+      a.btn-link:hover {
+        background: #1d4ed8;
+      }
       #status {
         margin-top: 0.75rem;
         font-size: 0.9rem;
@@ -84,6 +96,11 @@
   </head>
   <body>
     <h1>NeoBabylon</h1>
+    <p>
+      <a class="btn-link" href="memory.html" style="display: inline-block; margin-bottom: 0.75rem"
+        >Word memory (last 7 days)</a
+      >
+    </p>
     <p>
       Keys stay on this device in
       <code>chrome.storage.local</code>. Do not publish a build that embeds

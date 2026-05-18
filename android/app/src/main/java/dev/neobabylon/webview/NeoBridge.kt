@@ -36,6 +36,20 @@ class NeoBridge(
                         } else {
                             result
                         }
+                    if (!sentenceMode) {
+                        val def =
+                            if (trimmed.isNull("definition")) {
+                                null
+                            } else {
+                                trimmed.optString("definition").takeIf { it.isNotBlank() }
+                            }
+                        LookupMemory.record(
+                            prefs,
+                            word,
+                            trimmed.getString("translation"),
+                            def,
+                        )
+                    }
                     JSONObject().put("ok", true).put("result", trimmed).toString()
                 } catch (e: Exception) {
                     JSONObject()

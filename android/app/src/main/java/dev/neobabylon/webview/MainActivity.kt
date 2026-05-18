@@ -55,13 +55,19 @@ class MainActivity : AppCompatActivity() {
 
         binding.overflowButton.setOnClickListener { anchor ->
             PopupMenu(this, anchor).apply {
-                menu.add(Menu.NONE, MENU_SETTINGS, Menu.NONE, getString(R.string.settings))
+                menu.add(Menu.NONE, MENU_MEMORY, 0, getString(R.string.word_memory))
+                menu.add(Menu.NONE, MENU_SETTINGS, 1, getString(R.string.settings))
                 setOnMenuItemClickListener { item ->
-                    if (item.itemId == MENU_SETTINGS) {
-                        startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
-                        true
-                    } else {
-                        false
+                    when (item.itemId) {
+                        MENU_MEMORY -> {
+                            startActivity(Intent(this@MainActivity, WordMemoryActivity::class.java))
+                            true
+                        }
+                        MENU_SETTINGS -> {
+                            startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
+                            true
+                        }
+                        else -> false
                     }
                 }
                 show()
@@ -314,6 +320,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
+        private const val MENU_MEMORY = 2
         private const val MENU_SETTINGS = 1
     }
 }

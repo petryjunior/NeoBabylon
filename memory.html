@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NeoBabylon — Word memory</title>
+    <style>
+      :root {
+        font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+        line-height: 1.45;
+        color: #111827;
+        background: #f3f4f6;
+      }
+      body {
+        max-width: 42rem;
+        margin: 0 auto;
+        padding: 1.25rem 1rem 3rem;
+      }
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+      }
+      h1 {
+        font-size: 1.35rem;
+        font-weight: 650;
+        margin: 0;
+        flex: 1;
+      }
+      .sub {
+        width: 100%;
+        margin: -0.35rem 0 0;
+        font-size: 0.9rem;
+        color: #4b5563;
+      }
+      button,
+      .btn-link {
+        font: inherit;
+        cursor: pointer;
+        border-radius: 8px;
+        padding: 0.45rem 0.85rem;
+      }
+      button.secondary {
+        border: 1px solid #c8c8d4;
+        background: #fff;
+        color: #111827;
+      }
+      button.danger {
+        border: none;
+        background: #fef2f2;
+        color: #b91c1c;
+      }
+      .btn-link {
+        display: inline-block;
+        background: #2563eb;
+        color: #fff;
+        text-decoration: none;
+        font-weight: 600;
+        border: none;
+      }
+      section {
+        margin-bottom: 1.5rem;
+      }
+      h2 {
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #6b7280;
+        margin: 0 0 0.65rem;
+      }
+      .card {
+        background: #fff;
+        border-radius: 10px;
+        border: 1px solid #e5e7eb;
+        padding: 0.85rem 1rem;
+        margin-bottom: 0.65rem;
+      }
+      .word {
+        font-weight: 650;
+        color: #1d4ed8;
+        margin-bottom: 0.35rem;
+      }
+      .meta {
+        font-size: 0.8rem;
+        color: #6b7280;
+        margin-bottom: 0.5rem;
+      }
+      .trans {
+        margin-bottom: 0.35rem;
+      }
+      .def {
+        font-size: 0.9rem;
+        color: #374151;
+      }
+      .entry {
+        border-top: 1px solid #f3f4f6;
+        padding-top: 0.65rem;
+        margin-top: 0.65rem;
+      }
+      .entry:first-of-type {
+        border-top: none;
+        padding-top: 0;
+        margin-top: 0.35rem;
+      }
+      #empty {
+        text-align: center;
+        color: #6b7280;
+        padding: 2rem 1rem;
+      }
+      #loading {
+        color: #6b7280;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Word memory</h1>
+      <a class="btn-link" href="options.html">Settings</a>
+      <button type="button" class="danger" id="clearBtn">Clear history</button>
+      <p class="sub">
+        Alt+click word lookups from the last 7 days (stored on this device only).
+      </p>
+    </header>
+    <p id="loading">Loading…</p>
+    <div id="content" hidden></div>
+    <p id="empty" hidden>No word lookups yet. Alt+click a word on any page.</p>
+    <script src="memory.js"></script>
+  </body>
+</html>

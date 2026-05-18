@@ -13,7 +13,7 @@
     "open_in_tab": true
   },
   "action": {
-    "default_title": "NeoBabylon — Alt-click a word or translate selection"
+    "default_title": "NeoBabylon — Alt-click a word; click icon for word memory"
   },
   "content_scripts": [
     {
