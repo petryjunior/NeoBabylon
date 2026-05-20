@@ -50,5 +50,6 @@
         android:padding="24dp"
         android:text="@string/word_memory_empty"
         android:textAppearance="?attr/textAppearanceBodyMedium"
+        android:textColor="?attr/colorOnSurface"
         android:visibility="gone" />
 </LinearLayout>
